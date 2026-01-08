@@ -1,0 +1,85 @@
+# ===============================
+# Xcode
+# ===============================
+
+# Build products
+build/
+DerivedData/
+
+# User-specific Xcode files
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+xcuserdata/
+
+# Xcode workspace
+*.xcworkspace/xcuserdata
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# ===============================
+# Swift / iOS / macOS
+# ===============================
+
+# App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# ===============================
+# Logs & caches
+# ===============================
+
+*.log
+*.tmp
+*.swp
+*.DS_Store
+
+# ===============================
+# Tools
+# ===============================
+
+# SwiftFormat
+.swiftformat.cache
+
+# SwiftLint
+.swiftlint.yml
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# ===============================
+# Stockfish / Engines / Binaries
+# ===============================
+
+*.bin
+*.exe
+ChessAppp/*.nnue
+
+# ===============================
+# Secrets / Local config
+# ===============================
+
+.env
+.env.local
+.env.*.local
+
+# ===============================
+# Crash reports
+# ===============================
+
+*.crash
+
+*.nnue
