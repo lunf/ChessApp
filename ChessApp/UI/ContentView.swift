@@ -71,6 +71,7 @@ struct ContentView: View {
                 engine.start()
                 engine.setElo(Int(elo))
                 mentor.checkModelAvailability()
+                restoreGameIfAvailable()
             }
             .onChange(of: elo) { _, newValue in
                 engine.setElo(Int(newValue))
@@ -183,7 +184,11 @@ struct ContentView: View {
 
     // ---- End ----
     private func handleUserMove(_ uci: String) {
-        guard !game.gameResult().isTerminal else { return }
+        // If game already ended, still show result
+        guard isGameOngoing() else {
+            handleGameResultAfterMove()
+            return
+        }
 
         guard let move = parseUCI(uci) else { return }
 
@@ -194,8 +199,10 @@ struct ContentView: View {
 
         // Normal move
         engine.move(uci)
-        handleGameResult()
-
+        game.recordMove(uci)
+        persistGame()
+        
+        handleGameResultAfterMove()
         requestEngineMoveIfNeeded()
     }
 
@@ -210,11 +217,13 @@ struct ContentView: View {
         guard let piecePromo = type.uciChar else { return }
         let promotionMove = pendingMove + piecePromo
 
+        game.recordMove(promotionMove)
         engine.move(promotionMove)
 
         pendingPromotionMove = nil
 
-        handleGameResult()
+        persistGame()
+        handleGameResultAfterMove()
         requestEngineMoveIfNeeded()
     }
 
@@ -248,16 +257,14 @@ struct ContentView: View {
     private func applyEngineMove(_ uci: String) {
         // Stockfish signals game over
         guard isGameOngoing() else {
-            engine.stop()
+            handleGameResultAfterMove()
             return
         }
 
         guard uci != "(none)" else {
-            handleGameResult()
+            handleGameResultAfterMove()
             return
         }
-        
-        sendMoveToMentor(move: uci)
 
         guard let move = parseUCI(uci) else { return }
 
@@ -267,29 +274,44 @@ struct ContentView: View {
         } else {
             game.move(from: move.from, to: move.to)
         }
+        
+        // record engine move
+        game.recordMove(uci)
+        persistGame()
+        
+        sendMoveToMentor(move: uci)
 
         // allow state to settle before evaluating otherwise alaways see check
         DispatchQueue.main.async {
-            self.handleGameResult()
-            self.requestEngineMoveIfNeeded()
+            self.handleGameResultAfterMove()
+            if self.gameResult == .ongoing {
+                self.requestEngineMoveIfNeeded()
+            }
         }
     }
 
-    private func handleGameResult() {
+    private func handleGameResultAfterMove() {
         let result = game.gameResult()
-        switch result {
-        case .checkmate, .stalemate:
-            gameResult = result
-            engine.stop()
-        case .check:
-            gameResult = result
 
-            // Auto-dismiss after 1 seconds
+        switch result {
+        case .checkmate(let winner):
+            gameResult = .checkmate(winner: winner)
+            engine.stop()
+
+        case .stalemate:
+            gameResult = .stalemate
+            engine.stop()
+
+        case .check(let color):
+            gameResult = .check(color: color)
+
+            // Auto-dismiss after 1 second
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                if gameResult.isTransient {
-                    gameResult = .ongoing
+                if self.gameResult.isTransient {
+                    self.gameResult = .ongoing
                 }
             }
+
         case .ongoing:
             break
         }
@@ -304,9 +326,9 @@ struct ContentView: View {
         guard !isResetting else { return }
         guard !engine.isThinking else { return }
 
-        let result = game.gameResult()
-        if result.isTerminal {
-            engine.stop()
+        // Check in game is over
+        guard isGameOngoing() else {
+            handleGameResultAfterMove()
             return
         }
 
@@ -360,6 +382,7 @@ struct ContentView: View {
     private func resetGameInternal() {
         isResetting = true
 
+        GameStorage.clear()
         engine.stop()
         game.reset()
         gameResult = .ongoing
@@ -459,10 +482,42 @@ struct ContentView: View {
         }
     }
     
-    func appendAIResponse(_ text: String) {
+    private func appendAIResponse(_ text: String) {
         mentorMessages.append(
             MentorMessage(role: .ai, text: text)
         )
     }
+    
+    // MARK: Storage
+    
+    private func persistGame() {
+        let snapshot = GameSnapshot(
+            fen: game.fen,
+            moves: game.moveHistory,
+            whitePlayer: whitePlayer,
+            blackPlayer: blackPlayer
+        )
+        GameStorage.save(snapshot)
+    }
 
+    private func restoreGameIfAvailable() {
+        guard let snapshot = GameStorage.load() else { return }
+        isResetting = true
+        engine.stop()
+        engine.newGame()
+
+        game.load(fromFEN: snapshot.fen)
+        game.setMoveHistory(snapshot.moves)
+        
+        whitePlayer = snapshot.whitePlayer
+        blackPlayer = snapshot.blackPlayer
+
+        boardFlipped = (whitePlayer == .engine)
+        engine.setPosition(fen: game.fen)
+
+        DispatchQueue.main.async {
+            self.isResetting = false
+            self.requestEngineMoveIfNeeded()
+        }
+    }
 }

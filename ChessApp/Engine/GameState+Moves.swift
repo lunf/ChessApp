@@ -64,11 +64,8 @@ extension GameState {
 
     func hasAnyLegalMove(for color: PieceColor) -> Bool {
         for (from, piece) in board where piece.color == color {
-            let moves = pseudoMoves(from: from, piece: piece)
-            for to in moves {
-                if isLegalAfterMove(from: from, to: to, color: color) {
-                    return true
-                }
+            if !legalMoves(from: from).isEmpty {
+                return true
             }
         }
         return false
@@ -105,6 +102,15 @@ extension GameState {
         }
 
         return moves
+    }
+    
+    private func pawnAttackMoves(from: Square, _ piece: Piece) -> Set<Square> {
+        let dir = piece.color == .white ? 1 : -1
+        let attacks = [
+            Square(file: from.file - 1, rank: from.rank + dir),
+            Square(file: from.file + 1, rank: from.rank + dir)
+        ]
+        return Set(attacks.filter(isInside))
     }
 
     // MARK: - Sliding pieces
@@ -145,11 +151,7 @@ extension GameState {
         return moves
     }
 
-    private func slidingMoves(
-        _ from: Square,
-        _ piece: Piece,
-        directions: [(Int, Int)]
-    ) -> Set<Square> {
+    private func slidingMoves(_ from: Square, _ piece: Piece, directions: [(Int, Int)]) -> Set<Square> {
 
         var moves = Set<Square>()
 
@@ -235,7 +237,7 @@ extension GameState {
 
     private func attackMoves(from: Square, _ piece: Piece) -> Set<Square> {
         switch piece.type {
-        case .pawn: return pawnMoves(from: from, piece)
+        case .pawn: return pawnAttackMoves(from: from, piece)
         case .knight: return knightMoves(from: from, piece)
         case .bishop: return slidingMoves(from, piece, directions: bishopDirs)
         case .rook: return slidingMoves(from, piece, directions: rookDirs)
@@ -304,27 +306,6 @@ extension GameState {
     ) {
         board[from] = originalFrom
         board[to] = originalTo
-    }
-
-    private func isLegalAfterMove(from: Square, to: Square, color: PieceColor)
-        -> Bool
-    {
-
-        // Save state
-        let captured = board[to]
-        let moving = board[from]
-
-        // Make move
-        board[to] = moving
-        board[from] = nil
-
-        let inCheck = isKingInCheck(color: color)
-
-        // Undo move
-        board[from] = moving
-        board[to] = captured
-
-        return !inCheck
     }
 
     private func isInside(_ square: Square) -> Bool {

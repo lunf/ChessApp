@@ -46,6 +46,30 @@ struct Piece {
     let type: PieceType
     let color: PieceColor
 
+    init(type: PieceType, color: PieceColor) {
+        self.type = type
+        self.color = color
+    }
+    
+    // Initialize with FEN
+    init?(fenChar: Character) {
+        let isWhite = fenChar.isUppercase
+        let color: PieceColor = isWhite ? .white : .black
+
+        switch fenChar.lowercased() {
+        case "p": self.type = .pawn
+        case "n": self.type = .knight
+        case "b": self.type = .bishop
+        case "r": self.type = .rook
+        case "q": self.type = .queen
+        case "k": self.type = .king
+        default:
+            return nil
+        }
+
+        self.color = color
+    }
+    
     var symbol: String {
         switch (type, color) {
         case (.king, .white):   return "♔"

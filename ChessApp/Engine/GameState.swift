@@ -14,12 +14,16 @@ final class GameState: ObservableObject {
     @Published var board: [Square: Piece] = [:]
     @Published var selectedSquare: Square?
     @Published var legalMoves: Set<Square> = []
+    @Published private(set) var moveHistory: [String] = []
 
     var sideToMove: PieceColor = .white
     var castlingRights = CastlingRights()
 
     var fen: String {
-        generateFEN()
+        sanitizeCastlingRights()
+        let fenStr = generateFEN()
+        print("FEN: \(fenStr)")
+        return fenStr
     }
 
     init() {
@@ -31,7 +35,21 @@ final class GameState: ObservableObject {
         sideToMove = .white
         castlingRights = CastlingRights()
         clearSelection()
-    }		
+    }
+    
+    func load(fromFEN fen: String) {
+        print("Loading FEN: \(fen)")
+        reset()
+        applyFEN(fen)
+    }
+    
+    func recordMove(_ uci: String) {
+        moveHistory.append(uci)
+    }
+    
+    func setMoveHistory(_ moves: [String]) {
+        moveHistory = moves
+    }
     
     func clearSelection() {
         selectedSquare = nil
@@ -284,17 +302,97 @@ final class GameState: ObservableObject {
         let side = sideToMove == .white ? "w" : "b"
 
         // Castling rights
-        let castling = castlingRights.fenString
+        let castling = castlingRights.fenString.isEmpty
+            ? "-"
+            : castlingRights.fenString
 
-        // En passant (not implemented yet)
+        // En passant (not implemented)
         let enPassant = "-"
 
-        // Move counters
+        // Move counters (safe defaults)
         let halfmove = "0"
         let fullmove = "1"
 
-        return
-            "\(placement) \(side) \(castling) \(enPassant) \(halfmove) \(fullmove)"
+        return "\(placement) \(side) \(castling) \(enPassant) \(halfmove) \(fullmove)"
     }
+    
+    private func applyFEN(_ fen: String) {
+        clearSelection()
+        board.removeAll()
 
+        let parts = fen.split(separator: " ")
+        guard parts.count >= 4 else {
+            assertionFailure("Invalid FEN")
+            return
+        }
+
+        parsePiecePlacement(String(parts[0]))
+        parseSideToMove(String(parts[1]))
+        parseCastlingRights(String(parts[2]))
+    }
+    
+    private func parsePiecePlacement(_ placement: String) {
+        let ranks = placement.split(separator: "/")
+        guard ranks.count == 8 else {
+            assertionFailure("Invalid FEN ranks")
+            return
+        }
+
+        for (rankIndex, rankString) in ranks.enumerated() {
+            var file = 0
+            let rank = 7 - rankIndex   // FEN starts from rank 8
+
+            for char in rankString {
+                if let emptyCount = char.wholeNumberValue {
+                    file += emptyCount
+                } else {
+                    guard let piece = Piece(fenChar: char) else { continue }
+                    let square = Square(file: file, rank: rank)
+                    board[square] = piece
+                    file += 1
+                }
+            }
+        }
+    }
+    
+    private func parseSideToMove(_ side: String) {
+        sideToMove = (side == "w") ? .white : .black
+    }
+    
+    private func parseCastlingRights(_ castling: String) {
+        castlingRights = CastlingRights()
+
+        guard castling != "-" else { return }
+
+        if castling.contains("K") { castlingRights.whiteKingSide = true }
+        if castling.contains("Q") { castlingRights.whiteQueenSide = true }
+        if castling.contains("k") { castlingRights.blackKingSide = true }
+        if castling.contains("q") { castlingRights.blackQueenSide = true }
+    }
+    
+    private func sanitizeCastlingRights() {
+        // White
+        if board[Square(file: 4, rank: 0)]?.type != .king {
+            castlingRights.whiteKingSide = false
+            castlingRights.whiteQueenSide = false
+        }
+        if board[Square(file: 7, rank: 0)]?.type != .rook {
+            castlingRights.whiteKingSide = false
+        }
+        if board[Square(file: 0, rank: 0)]?.type != .rook {
+            castlingRights.whiteQueenSide = false
+        }
+
+        // Black
+        if board[Square(file: 4, rank: 7)]?.type != .king {
+            castlingRights.blackKingSide = false
+            castlingRights.blackQueenSide = false
+        }
+        if board[Square(file: 7, rank: 7)]?.type != .rook {
+            castlingRights.blackKingSide = false
+        }
+        if board[Square(file: 0, rank: 7)]?.type != .rook {
+            castlingRights.blackQueenSide = false
+        }
+    }
 }

@@ -20,7 +20,6 @@ final class EngineManager: ObservableObject {
 
     private let queue = DispatchQueue(label: "stockfish.engine.queue")
     private var isEngineReady = false
-    private var moves: [String] = []
 
     @Published var bestMove: String? = nil
     @Published var isThinking: Bool = false
@@ -60,14 +59,14 @@ final class EngineManager: ObservableObject {
     }
 
     func newGame() {
-        moves.removeAll()
+        send("stop")
         send("ucinewgame")
         send("isready")
     }
-
-    func move(_ move: String) {
-        moves.append(move)
-        requestEngineMove()
+    
+    func move(_ uci: String) {
+        // No position manipulation here
+        send(uci)
     }
 
     func think(fen: String) {
@@ -76,8 +75,15 @@ final class EngineManager: ObservableObject {
         bestMove = nil
         isThinking = true
 
-        sf_send("position fen \(fen)")
-        sf_send("go depth \(searchDepth)")
+        send("stop")
+        send("position fen \(fen)")
+        send("go depth \(searchDepth)")
+    }
+    
+    func setPosition(fen: String) {
+        send("stop")
+        send("position fen \(fen)")
+        send("isready")
     }
 
     func stop() {
@@ -85,18 +91,11 @@ final class EngineManager: ObservableObject {
     }
 
     func send(_ cmd: String) {
-        // print("SEND:", cmd)
+        print("SEND:", cmd)
         sf_send(cmd)
     }
 
     // MARK: Helpers
-
-    private func requestEngineMove() {
-        isThinking = true
-        let movesStr = moves.joined(separator: " ")
-        send("position startpos moves \(movesStr)")
-        send("go depth \(searchDepth)")
-    }
 
     private func startReading() {
         queue.async { [weak self] in
@@ -109,7 +108,7 @@ final class EngineManager: ObservableObject {
                     )
                     guard !line.isEmpty else { continue }
 
-                    // print("SF:", line)
+                    print("SF:", line)
 
                     if line.hasPrefix("bestmove") {
                         let parts = line.split(separator: " ")
@@ -118,7 +117,6 @@ final class EngineManager: ObservableObject {
 
                             // Hop to the main actor before touching main-actor isolated state.
                             Task { @MainActor in
-                                self.moves.append(move)
                                 self.bestMove = move
                                 self.isThinking = false
                             }
