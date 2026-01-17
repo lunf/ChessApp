@@ -43,7 +43,7 @@ final class AppleChessMentorService: ChessMentorService {
     private func buildUserPrompt(from payload: ChessMentorPayload) -> String {
         """
         You are a chess mentor.
-        Respond ONLY in English.
+        Respond ONLY in \(payload.responseLanguage).
         
         The ENGINE has just played a move.
         Your job is to explain the ENGINE'S decision to the HUMAN player.

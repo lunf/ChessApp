@@ -14,4 +14,5 @@ struct ChessMentorPayload: Codable {
     let engineEval: Double?
     let bestMove: String?
     let sysPrompt: String
+    let responseLanguage: String
 }

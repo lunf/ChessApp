@@ -24,7 +24,6 @@ struct ContentView: View {
         )
     }
     
-    @State private var showLegalMoves = true
     @State private var gameResult: GameResult = .ongoing
 
     @State private var whitePlayer: PlayerType = .human
@@ -33,11 +32,9 @@ struct ContentView: View {
     // default human play white == false
     @State private var boardFlipped = false
 
-    @State private var sideSelection: SideSelection = .white
     @State private var isResetting = false
-
-    // Elo range 1347 to 3176
-    @State private var elo: Double = 1347
+    
+    @StateObject private var gameSettings = GameSettings()
 
     @State private var showSettings = false
     @State private var confirmNewGame = false
@@ -69,14 +66,14 @@ struct ContentView: View {
             .toolbar { toolbarContent }
             .onAppear {
                 engine.start()
-                engine.setElo(Int(elo))
+                engine.setElo(Int(gameSettings.elo))
                 mentor.checkModelAvailability()
                 restoreGameIfAvailable()
             }
-            .onChange(of: elo) { _, newValue in
+            .onChange(of: gameSettings.elo) { _, newValue in
                 engine.setElo(Int(newValue))
             }
-            .onChange(of: sideSelection) { _, newSide in
+            .onChange(of: gameSettings.sideSelection) { _, newSide in
                 DispatchQueue.main.async {
                     applySideSelection(newSide)
                 }
@@ -97,7 +94,7 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             ChessBoardView(
                 game: game,
-                showLegalMoves: showLegalMoves,
+                showLegalMoves: gameSettings.showLegalMoves,
                 flipped: boardFlipped
             ) { move in
                 handleUserMove(move)
@@ -152,9 +149,9 @@ struct ContentView: View {
         NavigationStack {
             SettingsView(
                 mentorSettings: mentorSettings,
-                sideSelection: $sideSelection,
-                showLegalMoves: $showLegalMoves,
-                elo: $elo,
+                sideSelection: $gameSettings.sideSelection,
+                showLegalMoves: $gameSettings.showLegalMoves,
+                elo: $gameSettings.elo,
                 onSideChange: { newSide in
                     applySideSelection(newSide)
                 }
@@ -466,7 +463,8 @@ struct ContentView: View {
             playerColor: whitePlayer == .human ? "white" : "black",
             engineEval: nil,
             bestMove: engine.bestMove,
-            sysPrompt: mentorSettings.prompt
+            sysPrompt: mentorSettings.prompt,
+            responseLanguage: mentorSettings.responseLanguage
         )
 
         do {

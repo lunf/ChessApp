@@ -42,6 +42,8 @@ struct SettingsView: View {
                Toggle("Enable AI mentor", isOn: $mentorSettings.isEnabled)
 
                if mentorSettings.isEnabled {
+                   Toggle("Force English responses", isOn: $mentorSettings.forceEnglish)
+                   
                    Text("Mentor Prompt")
                        .font(.caption)
                        .foregroundColor(.secondary)
