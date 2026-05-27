@@ -92,12 +92,12 @@ final class GameState: ObservableObject {
     }
 
     func applyUCIMove(_ uciMove: String) {
-        guard let parsed = parseUCI(uciMove) else { return }
+        guard let move = UCIMove(uciMove) else { return }
 
-        if let promotion = parsed.promotion {
-            promotePawn(from: parsed.from, to: parsed.to, promoteTo: promotion)
+        if let promotion = move.promotion {
+            promotePawn(from: move.from, to: move.to, promoteTo: promotion)
         } else {
-            move(from: parsed.from, to: parsed.to)
+            self.move(from: move.from, to: move.to)
         }
     }
 
@@ -162,27 +162,6 @@ final class GameState: ObservableObject {
         )
     }
 
-    private func parseUCI(_ uci: String) -> (from: Square, to: Square, promotion: PieceType?)? {
-        guard uci.count >= 4 else { return nil }
-
-        let chars = Array(uci)
-        let files = Array("abcdefgh")
-
-        guard
-            let fromFile = files.firstIndex(of: chars[0]),
-            let fromRank = Int(String(chars[1])),
-            let toFile = files.firstIndex(of: chars[2]),
-            let toRank = Int(String(chars[3]))
-        else {
-            return nil
-        }
-
-        let from = Square(file: fromFile, rank: fromRank - 1)
-        let to = Square(file: toFile, rank: toRank - 1)
-        let promotion = chars.count == 5 ? PieceType(uciChar: chars[4]) : nil
-
-        return (from, to, promotion)
-    }
 }
 
 private extension Square {

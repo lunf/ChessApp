@@ -12,10 +12,7 @@ struct ChessBoardView: View {
     @ObservedObject var game: GameState
     let showLegalMoves: Bool
     let flipped: Bool
-    let onMove: (String) -> Void
-
-//    @State private var selected: Square?
-//    @State private var legalTargets: Set<Square> = []
+    let onMove: (UCIMove) -> Void
 
     private let ranks = Array((0...7).reversed())  // 7 -> 0
     private let files = Array(0...7)
@@ -95,7 +92,7 @@ struct ChessBoardView: View {
         if !showLegalMoves || game.legalMoves.contains(to) {
             if game.isLegalMove(from: from, to: to) {
                 game.move(from: from, to: to)
-                onMove(from.uci + to.uci)
+                onMove(UCIMove(from: from, to: to))
             }
             game.clearSelection()
             return
@@ -113,13 +110,5 @@ struct ChessBoardView: View {
 
         // ───── Invalid tap → clear ─────
         game.clearSelection()
-    }
-
-    private func toUci(from: Square, to: Square) -> String {
-        func fileChar(_ f: Int) -> String {
-            String(UnicodeScalar(97 + f)!)
-        }
-        return
-            "\(fileChar(from.file))\(from.rank+1)\(fileChar(to.file))\(to.rank+1)"
     }
 }

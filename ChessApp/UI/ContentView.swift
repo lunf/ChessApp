@@ -40,14 +40,12 @@ struct ContentView: View {
 
     // Pawn promotion
     @State private var promotionContext: PromotionContext?
-    @State private var pendingPromotionMove: String?
+    @State private var pendingPromotionMove: UCIMove?
     
     @State private var mentorMessages: [MentorMessage] = [
         MentorMessage(role: .system, text: "I'm your chess mentor. Ask me about any move.")
     ]
     @State private var mentorUnavailableShown = false
-    @State private var mentorMoveBuffer: [String] = []
-    @State private var mentorDebounceTask: Task<Void, Never>?
     @State private var mentorIsThinking = false
 
 
@@ -178,23 +176,21 @@ struct ContentView: View {
     }
 
     // ---- End ----
-    private func handleUserMove(_ uci: String) {
+    private func handleUserMove(_ move: UCIMove) {
         // If game already ended, still show result
         guard isGameOngoing() else {
             handleGameResultAfterMove()
             return
         }
 
-        guard let move = parseUCI(uci) else { return }
-
         if checkAndHandlePromotion(from: move.from, to: move.to) {
-            pendingPromotionMove = uci
+            pendingPromotionMove = move
             return
         }
 
         // Normal move
-        engine.move(uci)
-        game.recordMove(uci)
+        engine.move(move.rawValue)
+        game.recordMove(move.rawValue)
         persistGame()
         
         handleGameResultAfterMove()
@@ -209,44 +205,16 @@ struct ContentView: View {
         game.promotePawn(at: to, promoteTo: type)
 
         // Build full UCI move (e7e8q)
-        guard let piecePromo = type.uciChar else { return }
-        let promotionMove = pendingMove + piecePromo
+        let promotionMove = UCIMove(from: pendingMove.from, to: pendingMove.to, promotion: type)
 
-        game.recordMove(promotionMove)
-        engine.move(promotionMove)
+        game.recordMove(promotionMove.rawValue)
+        engine.move(promotionMove.rawValue)
 
         pendingPromotionMove = nil
 
         persistGame()
         handleGameResultAfterMove()
         requestEngineMoveIfNeeded()
-    }
-
-    private func parseUCI(_ uci: String) -> (
-        from: Square, to: Square, promotion: PieceType?
-    )? {
-        guard uci.count >= 4 else { return nil }
-
-        let chars = Array(uci)
-        let files = Array("abcdefgh")
-
-        guard
-            let fromFile = files.firstIndex(of: chars[0]),
-            let fromRank = Int(String(chars[1])),
-            let toFile = files.firstIndex(of: chars[2]),
-            let toRank = Int(String(chars[3]))
-        else {
-            return nil
-        }
-
-        let from = Square(file: fromFile, rank: fromRank - 1)
-        let to = Square(file: toFile, rank: toRank - 1)
-
-        // Optional promotion (5th char)
-        let promotion: PieceType? =
-            chars.count == 5 ? PieceType(uciChar: chars[4]) : nil
-
-        return (from, to, promotion)
     }
 
     private func applyEngineMove(_ uci: String) {
@@ -261,7 +229,7 @@ struct ContentView: View {
             return
         }
 
-        guard let move = parseUCI(uci) else { return }
+        guard let move = UCIMove(uci) else { return }
 
         if let promo = move.promotion {
             // Update game board for the move and type
@@ -271,7 +239,7 @@ struct ContentView: View {
         }
         
         // record engine move
-        game.recordMove(uci)
+        game.recordMove(move.rawValue)
         persistGame()
         
         // allow state to settle before evaluating otherwise alaways see check
@@ -389,9 +357,6 @@ struct ContentView: View {
         engine.newGame()
 
         // Mentor reset
-        mentorDebounceTask?.cancel()
-        mentorDebounceTask = nil
-        mentorMoveBuffer.removeAll()
         mentorUnavailableShown = false
         mentorMessages = [
             MentorMessage(role: .system, text: "I'm your chess mentor. Ask me about any move.")
@@ -428,28 +393,6 @@ struct ContentView: View {
     
     // MARK: AI
     
-    private func sendMoveToMentor(move: String) {
-        guard mentorSettings.isEnabled else { return }
-        guard !mentorUnavailableShown else { return }
-        // Buffer the move
-        mentorMoveBuffer.append(move)
-        
-        mentorMessages.append(
-           MentorMessage(role: .user, text: "Engine played \(move)")
-        )
-        
-        // Cancel previous debounce
-        mentorDebounceTask?.cancel()
-        
-        // Debounce (wait for quick moves to finish)
-        mentorDebounceTask = Task {
-            try? await Task.sleep(nanoseconds: 2_800_000_000) // 2.8s
-
-            await sendBatchedMovesToMentor()
-        }
-        
-    }
-
     private func askMentorForPositionGuide() {
         guard mentorSettings.isEnabled else { return }
         guard !mentorIsThinking else { return }
@@ -494,38 +437,6 @@ struct ContentView: View {
             appendAIResponse("I couldn't analyze the position right now.")
         }
     }
-    
-    @MainActor
-    private func sendBatchedMovesToMentor() async {
-        guard mentorSettings.isEnabled else {
-            mentorMoveBuffer.removeAll()
-            return
-        }
-
-        guard !mentorMoveBuffer.isEmpty else { return }
-
-        let allMoves = mentorMoveBuffer
-        mentorMoveBuffer.removeAll()
-
-        // Only last 5 moves
-        let moves = Array(allMoves.suffix(5))
-
-        let payload = ChessMentorPayload(
-            fen: game.fen,
-            moves: moves,
-            moveNumber: moves.count,
-            sideToMove: game.sideToMove.text,
-            playerColor: whitePlayer == .human ? "white" : "black",
-            engineEval: nil,
-            bestMove: engine.bestMove,
-            requestKind: .engineMove,
-            sysPrompt: mentorSettings.prompt,
-            responseLanguage: mentorSettings.responseLanguage
-        )
-
-        await sendMentorPayload(payload)
-    }
-    
     private func appendAIResponse(_ text: String) {
         mentorMessages.append(
             MentorMessage(role: .ai, text: text)
