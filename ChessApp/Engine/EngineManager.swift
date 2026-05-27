@@ -88,6 +88,8 @@ final class EngineManager: ObservableObject {
 
     func stop() {
         send("stop")
+        bestMove = nil
+        isThinking = false
     }
 
     func send(_ cmd: String) {

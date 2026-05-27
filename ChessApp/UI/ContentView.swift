@@ -377,7 +377,10 @@ struct ContentView: View {
         resetGameInternal()
 
         // Engine moves first if human plays Black
-        requestEngineMoveIfNeeded()
+        DispatchQueue.main.async {
+            guard !isResetting else { return }
+            requestEngineMoveIfNeeded()
+        }
     }
     
     private func resetGameInternal() {
