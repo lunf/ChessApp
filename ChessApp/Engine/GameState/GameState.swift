@@ -5,47 +5,61 @@
 //  Created by cuong.nguyenhat on 18/12/25.
 //
 
+import ChessKit
 import Combine
 import Foundation
 
 @MainActor
 final class GameState: ObservableObject {
 
-    @Published var board: [Square: Piece] = [:]
+    @Published private(set) var board: [Square: Piece] = [:]
     @Published var selectedSquare: Square?
     @Published var legalMoves: Set<Square> = []
     @Published private(set) var moveHistory: [String] = []
 
-    var sideToMove: PieceColor = .white
-    var castlingRights = CastlingRights()
-    var enPassantTarget: Square?
+    private var chessBoard = ChessKit.Board()
+    private var pendingPromotionMove: ChessKit.Move?
+
+    var sideToMove: PieceColor {
+        PieceColor(chessBoard.position.sideToMove)
+    }
+
+    var fen: String {
+        chessBoard.position.fen
+    }
 
     init() {
-        reset()
+        syncBoard()
     }
 
     func reset() {
-        board = Self.startPosition()
-        sideToMove = .white
-        castlingRights = CastlingRights()
-        enPassantTarget = nil
+        chessBoard = ChessKit.Board()
+        pendingPromotionMove = nil
+        moveHistory.removeAll()
+        syncBoard()
         clearSelection()
     }
-    
+
     func load(fromFEN fen: String) {
-        print("Loading FEN: \(fen)")
-        reset()
-        applyFEN(fen)
+        guard let position = ChessKit.Position(fen: fen) else {
+            assertionFailure("Invalid FEN: \(fen)")
+            return
+        }
+
+        chessBoard = ChessKit.Board(position: position)
+        pendingPromotionMove = nil
+        syncBoard()
+        clearSelection()
     }
-    
+
     func recordMove(_ uci: String) {
         moveHistory.append(uci)
     }
-    
+
     func setMoveHistory(_ moves: [String]) {
         moveHistory = moves
     }
-    
+
     func clearSelection() {
         selectedSquare = nil
         legalMoves.removeAll()
@@ -55,97 +69,176 @@ final class GameState: ObservableObject {
         board[square]
     }
 
+    func legalMoves(from square: Square) -> Set<Square> {
+        Set(chessBoard.legalMoves(forPieceAt: square.chessKitSquare).map(Square.init))
+    }
+
+    func isLegalMove(from: Square, to: Square) -> Bool {
+        chessBoard.canMove(pieceAt: from.chessKitSquare, to: to.chessKitSquare)
+    }
+
     func move(from: Square, to: Square) {
-        guard let piece = board[from] else { return }
-        let capturedPiece = board[to]
-        let previousEnPassantTarget = enPassantTarget
-        enPassantTarget = nil
-
-        // King Castling
-        if isKingCastling(from: from, to: to, piece: piece) {
-            performCastling(from: from, to: to, piece: piece)
-            sideToMove = sideToMove.opposite
+        guard chessBoard.move(pieceAt: from.chessKitSquare, to: to.chessKitSquare) != nil else {
             return
         }
 
-        // Pawn promotion check
-        if piece.type == .pawn && isPromotionSquare(piece: piece, to: to) {
-            // Defer promotion choice to UI
-            board[from] = nil
-            board[to] = piece
-            updateCastlingRights(movingPiece: piece, from: from, capturedPiece: capturedPiece, capturedAt: to)
-            return
+        if case .promotion(let promotionMove) = chessBoard.state {
+            pendingPromotionMove = promotionMove
+        } else {
+            pendingPromotionMove = nil
         }
 
-        if isEnPassantCapture(from: from, to: to, piece: piece, previousTarget: previousEnPassantTarget) {
-            let capturedPawnSquare = Square(file: to.file, rank: from.rank)
-            board[capturedPawnSquare] = nil
-        }
-
-        // ───── Normal move ─────
-        board[to] = piece
-        board[from] = nil
-        sideToMove = sideToMove.opposite
-
-        updateCastlingRights(movingPiece: piece, from: from, capturedPiece: capturedPiece, capturedAt: to)
-        updateEnPassantTarget(piece: piece, from: from, to: to)
+        syncBoard()
     }
 
     func applyUCIMove(_ uciMove: String) {
-        guard uciMove.count >= 4 else { return }
+        guard let parsed = parseUCI(uciMove) else { return }
 
-        let chars = Array(uciMove)
-        let fromSquare = Square(
-            file: Int(chars[0].asciiValue! - 97),
-            rank: Int(chars[1].asciiValue! - 49)
-        )
-        let toSquare = Square(
-            file: Int(chars[2].asciiValue! - 97),
-            rank: Int(chars[3].asciiValue! - 49)
-        )
-
-        move(from: fromSquare, to: toSquare)
+        if let promotion = parsed.promotion {
+            promotePawn(from: parsed.from, to: parsed.to, promoteTo: promotion)
+        } else {
+            move(from: parsed.from, to: parsed.to)
+        }
     }
 
     func gameResult() -> GameResult {
-        let side = sideToMove
-
-        let inCheck = isKingInCheck(color: side)
-        let hasMoves = hasAnyLegalMove(for: side)
-
-        if !hasMoves {
-            if inCheck {
-                return .checkmate(winner: side.opposite)
-            } else {
+        switch chessBoard.state {
+        case .active, .promotion:
+            return .ongoing
+        case .check(let color):
+            return .check(color: PieceColor(color))
+        case .checkmate(let color):
+            return .checkmate(winner: PieceColor(color.opposite))
+        case .draw(let reason):
+            if reason == .stalemate {
                 return .stalemate
             }
+            return .draw(reason: reason.rawValue.capitalized)
         }
-
-        if inCheck {
-            return .check(color: side)
-        }
-
-        return .ongoing
     }
 
-    // MARK: Helper
-    private static func startPosition() -> [Square: Piece] {
-        var b: [Square: Piece] = [:]
+    // MARK: - Promotion
 
-        // Pawns
-        for f in 0..<8 {
-            b[Square(file: f, rank: 1)] = Piece(type: .pawn, color: .white)
-            b[Square(file: f, rank: 6)] = Piece(type: .pawn, color: .black)
+    func promotePawn(from: Square, to: Square, promoteTo newType: PieceType) {
+        guard let kind = ChessKit.Piece.Kind(newType) else { return }
+        guard chessBoard.move(pieceAt: from.chessKitSquare, to: to.chessKitSquare) != nil else {
+            return
         }
 
-        let backRank: [PieceType] =
-            [.rook, .knight, .bishop, .queen, .king, .bishop, .knight, .rook]
-
-        for (f, t) in backRank.enumerated() {
-            b[Square(file: f, rank: 0)] = Piece(type: t, color: .white)
-            b[Square(file: f, rank: 7)] = Piece(type: t, color: .black)
+        if case .promotion(let move) = chessBoard.state {
+            chessBoard.completePromotion(of: move, to: kind)
         }
 
-        return b
+        pendingPromotionMove = nil
+        syncBoard()
+        clearSelection()
+    }
+
+    func promotePawn(at square: Square, promoteTo newType: PieceType) {
+        guard let pendingPromotionMove,
+              pendingPromotionMove.end == square.chessKitSquare,
+              let kind = ChessKit.Piece.Kind(newType)
+        else {
+            return
+        }
+
+        chessBoard.completePromotion(of: pendingPromotionMove, to: kind)
+        self.pendingPromotionMove = nil
+        syncBoard()
+        clearSelection()
+    }
+
+    func isPromotionSquare(piece: Piece, to square: Square) -> Bool {
+        piece.type == .pawn && (square.rank == 0 || square.rank == 7)
+    }
+
+    // MARK: - Helpers
+
+    private func syncBoard() {
+        board = Dictionary(
+            uniqueKeysWithValues: chessBoard.position.pieces.map {
+                (Square($0.square), Piece($0))
+            }
+        )
+    }
+
+    private func parseUCI(_ uci: String) -> (from: Square, to: Square, promotion: PieceType?)? {
+        guard uci.count >= 4 else { return nil }
+
+        let chars = Array(uci)
+        let files = Array("abcdefgh")
+
+        guard
+            let fromFile = files.firstIndex(of: chars[0]),
+            let fromRank = Int(String(chars[1])),
+            let toFile = files.firstIndex(of: chars[2]),
+            let toRank = Int(String(chars[3]))
+        else {
+            return nil
+        }
+
+        let from = Square(file: fromFile, rank: fromRank - 1)
+        let to = Square(file: toFile, rank: toRank - 1)
+        let promotion = chars.count == 5 ? PieceType(uciChar: chars[4]) : nil
+
+        return (from, to, promotion)
+    }
+}
+
+private extension Square {
+    init(_ square: ChessKit.Square) {
+        self.init(file: square.rawValue % 8, rank: square.rawValue / 8)
+    }
+
+    var chessKitSquare: ChessKit.Square {
+        ChessKit.Square(rawValue: rank * 8 + file) ?? .a1
+    }
+}
+
+private extension Piece {
+    init(_ piece: ChessKit.Piece) {
+        self.init(type: PieceType(piece.kind), color: PieceColor(piece.color))
+    }
+}
+
+private extension PieceColor {
+    init(_ color: ChessKit.Piece.Color) {
+        self = color == .white ? .white : .black
+    }
+}
+
+private extension PieceType {
+    init(_ kind: ChessKit.Piece.Kind) {
+        switch kind {
+        case .king:
+            self = .king
+        case .queen:
+            self = .queen
+        case .rook:
+            self = .rook
+        case .bishop:
+            self = .bishop
+        case .knight:
+            self = .knight
+        case .pawn:
+            self = .pawn
+        }
+    }
+}
+
+private extension ChessKit.Piece.Kind {
+    init?(_ pieceType: PieceType) {
+        switch pieceType {
+        case .queen:
+            self = .queen
+        case .rook:
+            self = .rook
+        case .bishop:
+            self = .bishop
+        case .knight:
+            self = .knight
+        case .king, .pawn:
+            return nil
+        }
     }
 }

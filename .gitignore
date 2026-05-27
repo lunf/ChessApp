@@ -21,6 +21,7 @@ xcuserdata/
 .build/
 .swiftpm/
 Package.resolved
+!ChessApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # ===============================
 # Swift / iOS / macOS

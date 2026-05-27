@@ -299,6 +299,10 @@ struct ContentView: View {
             gameResult = .stalemate
             engine.stop()
 
+        case .draw(let reason):
+            gameResult = .draw(reason: reason)
+            engine.stop()
+
         case .check(let color):
             gameResult = .check(color: color)
 
