@@ -23,8 +23,6 @@ final class GameSettings: ObservableObject {
     @AppStorage("show_legal_moves")
     var showLegalMoves = true
 
-    private var isSyncing = false
-
     init() {
         sideSelection = SideSelection(rawValue: sideSelectionRaw) ?? .white
     }

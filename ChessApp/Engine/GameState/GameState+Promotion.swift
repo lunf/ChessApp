@@ -41,6 +41,7 @@ extension GameState {
         }
 
         let pawnSquare = from ?? to
+        let capturedPiece = from == nil ? nil : board[to]
 
         guard let pawn = board[pawnSquare], pawn.type == .pawn else {
             assertionFailure("No pawn to promote")
@@ -49,9 +50,11 @@ extension GameState {
 
         if let from {
             board[from] = nil
+            updateCastlingRights(movingPiece: pawn, from: from, capturedPiece: capturedPiece, capturedAt: to)
         }
 
         board[to] = Piece(type: newType, color: pawn.color)
+        enPassantTarget = nil
 
         sideToMove = sideToMove.opposite
         clearSelection()

@@ -140,14 +140,14 @@ const char* sf_read() {
 
 void sf_shutdown() {
     if (!running) return;
-    running = false;
 
     sf_send("quit");
-
     inputCV.notify_all();
 
     if (engineThread.joinable())
         engineThread.join();
+
+    running = false;
 
     std::cin.rdbuf(oldCin);
     std::cout.rdbuf(oldCout);

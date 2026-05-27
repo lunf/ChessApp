@@ -98,6 +98,9 @@ final class EngineManager: ObservableObject {
     // MARK: Helpers
 
     private func startReading() {
+        guard !readingStarted else { return }
+        readingStarted = true
+
         queue.async { [weak self] in
             guard let self else { return }
 
@@ -122,6 +125,8 @@ final class EngineManager: ObservableObject {
                             }
                         }
                     }
+                } else {
+                    Thread.sleep(forTimeInterval: 0.01)
                 }
             }
         }

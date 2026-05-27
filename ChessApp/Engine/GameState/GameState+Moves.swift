@@ -95,26 +95,28 @@ extension GameState {
         clearCastlingRights(for: piece.color)
     }
     
-    func updateCastlingRights(piece: Piece, from: Square) {
-        guard piece.type == .rook || piece.type == .king else { return }
-
-        if piece.type == .king {
-            clearCastlingRights(for: piece.color)
-            return
+    func updateCastlingRights(movingPiece: Piece, from: Square, capturedPiece: Piece?, capturedAt: Square) {
+        if movingPiece.type == .king {
+            clearCastlingRights(for: movingPiece.color)
+        } else if movingPiece.type == .rook {
+            clearCastlingRightsForRook(color: movingPiece.color, square: from)
         }
 
-        switch (piece.color, from) {
-        case (.white, Square(file: 0, rank: 0)):
-            castlingRights.whiteQueenSide = false
-        case (.white, Square(file: 7, rank: 0)):
-            castlingRights.whiteKingSide = false
-        case (.black, Square(file: 0, rank: 7)):
-            castlingRights.blackQueenSide = false
-        case (.black, Square(file: 7, rank: 7)):
-            castlingRights.blackKingSide = false
-        default:
-            break
+        if let capturedPiece, capturedPiece.type == .rook {
+            clearCastlingRightsForRook(color: capturedPiece.color, square: capturedAt)
         }
+    }
+
+    func updateEnPassantTarget(piece: Piece, from: Square, to: Square) {
+        guard piece.type == .pawn, abs(to.rank - from.rank) == 2 else { return }
+        enPassantTarget = Square(file: from.file, rank: (from.rank + to.rank) / 2)
+    }
+
+    func isEnPassantCapture(from: Square, to: Square, piece: Piece, previousTarget: Square?) -> Bool {
+        piece.type == .pawn
+            && to == previousTarget
+            && board[to] == nil
+            && abs(to.file - from.file) == 1
     }
 
     // MARK: - Pawn
@@ -144,6 +146,15 @@ extension GameState {
                 target.color != piece.color
             {
                 moves.insert(cap)
+            }
+        }
+
+        if let enPassantTarget,
+           enPassantTarget.rank == from.rank + dir,
+           abs(enPassantTarget.file - from.file) == 1 {
+            let capturedPawnSquare = Square(file: enPassantTarget.file, rank: from.rank)
+            if board[capturedPawnSquare] == Piece(type: .pawn, color: piece.color.opposite) {
+                moves.insert(enPassantTarget)
             }
         }
 
@@ -356,6 +367,15 @@ extension GameState {
 
         let originalFrom = board[from]
         let originalTo = board[to]
+        var enPassantCaptureSquare: Square?
+        var enPassantCapturedPiece: Piece?
+
+        if isEnPassantCapture(from: from, to: to, piece: movingPiece, previousTarget: enPassantTarget) {
+            enPassantCaptureSquare = Square(file: to.file, rank: from.rank)
+            if let captureSquare = enPassantCaptureSquare {
+                enPassantCapturedPiece = board[captureSquare]
+            }
+        }
 
         // Track rook movement for castling
         var rookFrom: Square? = nil
@@ -382,6 +402,10 @@ extension GameState {
         // ───── Simulate move ─────
         board[to] = movingPiece
         board[from] = nil
+
+        if let captureSquare = enPassantCaptureSquare {
+            board[captureSquare] = nil
+        }
         
         if let rf = rookFrom, let rt = rookTo {
             board[rt] = rookPiece
@@ -394,7 +418,7 @@ extension GameState {
             kingSquare = to
         } else {
             guard let found = findKing(movingPiece.color) else {
-                restoreAfterSimulation(from: from, to: to, originalFrom, originalTo, rookFrom, rookTo, rookPiece)
+                restoreAfterSimulation(from: from, to: to, originalFrom, originalTo, rookFrom, rookTo, rookPiece, enPassantCaptureSquare, enPassantCapturedPiece)
                 return false
             }
             kingSquare = found
@@ -404,14 +428,15 @@ extension GameState {
         let inCheck = isSquareAttacked(kingSquare, by: movingPiece.color.opposite)
         
         // ───── Restore board ─────
-        restoreAfterSimulation(from: from, to: to, originalFrom, originalTo, rookFrom, rookTo, rookPiece)
+        restoreAfterSimulation(from: from, to: to, originalFrom, originalTo, rookFrom, rookTo, rookPiece, enPassantCaptureSquare, enPassantCapturedPiece)
 
         return inCheck
     }
 
     private func restoreAfterSimulation(from: Square, to: Square,
                                         _ originalFrom: Piece?, _ originalTo: Piece?,
-                                        _ rookFrom: Square?, _ rookTo: Square?,_ rookPiece: Piece?) {
+                                        _ rookFrom: Square?, _ rookTo: Square?, _ rookPiece: Piece?,
+                                        _ enPassantCaptureSquare: Square?, _ enPassantCapturedPiece: Piece?) {
         
         // Restore king first, rook second
         board[from] = originalFrom
@@ -420,6 +445,10 @@ extension GameState {
         if let rf = rookFrom, let rt = rookTo {
             board[rf] = rookPiece
             board[rt] = nil
+        }
+
+        if let captureSquare = enPassantCaptureSquare {
+            board[captureSquare] = enPassantCapturedPiece
         }
     }
 
@@ -449,6 +478,21 @@ extension GameState {
         }
     }
 
+    private func clearCastlingRightsForRook(color: PieceColor, square: Square) {
+        switch (color, square) {
+        case (.white, Square(file: 0, rank: 0)):
+            castlingRights.whiteQueenSide = false
+        case (.white, Square(file: 7, rank: 0)):
+            castlingRights.whiteKingSide = false
+        case (.black, Square(file: 0, rank: 7)):
+            castlingRights.blackQueenSide = false
+        case (.black, Square(file: 7, rank: 7)):
+            castlingRights.blackKingSide = false
+        default:
+            break
+        }
+    }
+
     private func addCastlingMoves(from: Square, piece: Piece, into moves: inout Set<Square>) {
         guard piece.type == .king else { return }
         
@@ -462,7 +506,7 @@ extension GameState {
             
             // ───── King-side (white) ─────
             if castlingRights.whiteKingSide,
-               board[Square(file: 7, rank: 0)]?.type == .rook,   // rook exists
+               board[Square(file: 7, rank: 0)] == Piece(type: .rook, color: .white),
                board[Square(file: 5, rank: 0)] == nil,
                board[Square(file: 6, rank: 0)] == nil,
                !isSquareAttacked(Square(file: 5, rank: 0), by: enemy),
@@ -473,7 +517,7 @@ extension GameState {
             
             // ───── Queen-side (white) ─────
             if castlingRights.whiteQueenSide,
-               board[Square(file: 0, rank: 0)]?.type == .rook,   // rook exists
+               board[Square(file: 0, rank: 0)] == Piece(type: .rook, color: .white),
                board[Square(file: 3, rank: 0)] == nil,
                board[Square(file: 2, rank: 0)] == nil,
                board[Square(file: 1, rank: 0)] == nil,
@@ -488,7 +532,7 @@ extension GameState {
             
             // ───── King-side (black) ─────
             if castlingRights.blackKingSide,
-               board[Square(file: 7, rank: 7)]?.type == .rook,   // rook exists
+               board[Square(file: 7, rank: 7)] == Piece(type: .rook, color: .black),
                board[Square(file: 5, rank: 7)] == nil,
                board[Square(file: 6, rank: 7)] == nil,
                !isSquareAttacked(Square(file: 5, rank: 7), by: enemy),
@@ -499,7 +543,7 @@ extension GameState {
             
             // ───── Queen-side (black) ─────
             if castlingRights.blackQueenSide,
-               board[Square(file: 0, rank: 7)]?.type == .rook,   // rook exists
+               board[Square(file: 0, rank: 7)] == Piece(type: .rook, color: .black),
                board[Square(file: 3, rank: 7)] == nil,
                board[Square(file: 2, rank: 7)] == nil,
                board[Square(file: 1, rank: 7)] == nil,

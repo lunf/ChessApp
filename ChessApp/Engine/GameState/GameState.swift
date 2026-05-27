@@ -18,6 +18,7 @@ final class GameState: ObservableObject {
 
     var sideToMove: PieceColor = .white
     var castlingRights = CastlingRights()
+    var enPassantTarget: Square?
 
     init() {
         reset()
@@ -27,6 +28,7 @@ final class GameState: ObservableObject {
         board = Self.startPosition()
         sideToMove = .white
         castlingRights = CastlingRights()
+        enPassantTarget = nil
         clearSelection()
     }
     
@@ -55,6 +57,9 @@ final class GameState: ObservableObject {
 
     func move(from: Square, to: Square) {
         guard let piece = board[from] else { return }
+        let capturedPiece = board[to]
+        let previousEnPassantTarget = enPassantTarget
+        enPassantTarget = nil
 
         // King Castling
         if isKingCastling(from: from, to: to, piece: piece) {
@@ -68,7 +73,13 @@ final class GameState: ObservableObject {
             // Defer promotion choice to UI
             board[from] = nil
             board[to] = piece
+            updateCastlingRights(movingPiece: piece, from: from, capturedPiece: capturedPiece, capturedAt: to)
             return
+        }
+
+        if isEnPassantCapture(from: from, to: to, piece: piece, previousTarget: previousEnPassantTarget) {
+            let capturedPawnSquare = Square(file: to.file, rank: from.rank)
+            board[capturedPawnSquare] = nil
         }
 
         // ───── Normal move ─────
@@ -76,7 +87,8 @@ final class GameState: ObservableObject {
         board[from] = nil
         sideToMove = sideToMove.opposite
 
-        updateCastlingRights(piece: piece, from: from)
+        updateCastlingRights(movingPiece: piece, from: from, capturedPiece: capturedPiece, capturedAt: to)
+        updateEnPassantTarget(piece: piece, from: from, to: to)
     }
 
     func applyUCIMove(_ uciMove: String) {

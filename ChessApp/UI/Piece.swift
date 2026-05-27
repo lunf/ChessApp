@@ -41,7 +41,7 @@ enum PieceColor {
     }
 }
 
-struct Piece {
+struct Piece: Equatable {
 
     let type: PieceType
     let color: PieceColor

@@ -11,7 +11,6 @@ struct SettingsView: View {
     @Binding var sideSelection: SideSelection
     @Binding var showLegalMoves: Bool
     @Binding var elo: Double
-    let onSideChange: (SideSelection) -> Void
 
     var body: some View {
         Form {

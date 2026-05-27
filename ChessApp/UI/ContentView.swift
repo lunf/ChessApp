@@ -149,12 +149,12 @@ struct ContentView: View {
         NavigationStack {
             SettingsView(
                 mentorSettings: mentorSettings,
-                sideSelection: $gameSettings.sideSelection,
+                sideSelection: Binding(
+                    get: { gameSettings.sideSelection },
+                    set: { gameSettings.updateSide($0) }
+                ),
                 showLegalMoves: $gameSettings.showLegalMoves,
-                elo: $gameSettings.elo,
-                onSideChange: { newSide in
-                    applySideSelection(newSide)
-                }
+                elo: $gameSettings.elo
             )
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)

@@ -30,8 +30,9 @@ extension GameState {
         applyPiecePlacement(String(parts[0]))
         applySideToMove(String(parts[1]))
         applyCastlingRights(String(parts[2]))
+        applyEnPassantTarget(String(parts[3]))
 
-        // En passant + clocks intentionally ignored
+        // Clocks intentionally ignored
         clearSelection()
     }
 
@@ -41,7 +42,7 @@ extension GameState {
         let placement = generatePiecePlacement()
         let side = sideToMove == .white ? "w" : "b"
         let castling = sanitizedCastlingString()
-        let enPassant = "-"          // not supported
+        let enPassant = enPassantTarget?.uci ?? "-"
         let halfmove = "0"
         let fullmove = "1"
 
@@ -134,26 +135,50 @@ extension GameState {
         castlingRights.blackKingSide  = value.contains("k")
         castlingRights.blackQueenSide = value.contains("q")
     }
+
+    private func applyEnPassantTarget(_ value: String) {
+        guard value != "-" else {
+            enPassantTarget = nil
+            return
+        }
+
+        let chars = Array(value)
+        guard chars.count == 2,
+              let fileAscii = chars[0].asciiValue,
+              let rank = Int(String(chars[1]))
+        else {
+            enPassantTarget = nil
+            assertionFailure("Invalid en passant square in FEN: \(value)")
+            return
+        }
+
+        let square = Square(file: Int(fileAscii - 97), rank: rank - 1)
+        enPassantTarget = (0..<8).contains(square.file) && (0..<8).contains(square.rank) ? square : nil
+    }
     
     private func sanitizedCastlingString() -> String {
         var result = ""
 
         // White
-        if board[Square(file: 4, rank: 0)]?.type == .king {
-            if board[Square(file: 7, rank: 0)]?.type == .rook {
+        if board[Square(file: 4, rank: 0)] == Piece(type: .king, color: .white) {
+            if castlingRights.whiteKingSide,
+               board[Square(file: 7, rank: 0)] == Piece(type: .rook, color: .white) {
                 result += "K"
             }
-            if board[Square(file: 0, rank: 0)]?.type == .rook {
+            if castlingRights.whiteQueenSide,
+               board[Square(file: 0, rank: 0)] == Piece(type: .rook, color: .white) {
                 result += "Q"
             }
         }
 
         // Black
-        if board[Square(file: 4, rank: 7)]?.type == .king {
-            if board[Square(file: 7, rank: 7)]?.type == .rook {
+        if board[Square(file: 4, rank: 7)] == Piece(type: .king, color: .black) {
+            if castlingRights.blackKingSide,
+               board[Square(file: 7, rank: 7)] == Piece(type: .rook, color: .black) {
                 result += "k"
             }
-            if board[Square(file: 0, rank: 7)]?.type == .rook {
+            if castlingRights.blackQueenSide,
+               board[Square(file: 0, rank: 7)] == Piece(type: .rook, color: .black) {
                 result += "q"
             }
         }
