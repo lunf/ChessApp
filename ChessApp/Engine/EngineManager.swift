@@ -93,7 +93,6 @@ final class EngineManager: ObservableObject {
     }
 
     func send(_ cmd: String) {
-        print("SEND:", cmd)
         sf_send(cmd)
     }
 
@@ -112,8 +111,6 @@ final class EngineManager: ObservableObject {
                         in: .whitespacesAndNewlines
                     )
                     guard !line.isEmpty else { continue }
-
-                    print("SF:", line)
 
                     if line.hasPrefix("bestmove") {
                         let parts = line.split(separator: " ")

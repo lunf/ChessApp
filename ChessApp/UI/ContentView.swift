@@ -37,7 +37,6 @@ struct ContentView: View {
     @StateObject private var gameSettings = GameSettings()
 
     @State private var showSettings = false
-    @State private var confirmNewGame = false
 
     // Pawn promotion
     @State private var promotionContext: PromotionContext?
@@ -49,6 +48,7 @@ struct ContentView: View {
     @State private var mentorUnavailableShown = false
     @State private var mentorMoveBuffer: [String] = []
     @State private var mentorDebounceTask: Task<Void, Never>?
+    @State private var mentorIsThinking = false
 
 
     var body: some View {
@@ -121,25 +121,23 @@ struct ContentView: View {
     private var toolbarContent: some ToolbarContent {
         Group {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    confirmNewGame = true
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                }
-                .confirmationDialog(
-                    "Start a new game?",
-                    isPresented: $confirmNewGame
-                ) {
-                    Button("New Game", role: .destructive, action: startNewGame)
-                    Button("Cancel", role: .cancel) {}
-                }
+                Button("New Game", action: startNewGame)
             }
 
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "gearshape.fill")
+                HStack {
+                    Button {
+                        askMentorForPositionGuide()
+                    } label: {
+                        Image(systemName: "sparkles")
+                    }
+                    .disabled(mentorIsThinking || !mentorSettings.isEnabled)
+
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                    }
                 }
             }
         }
@@ -276,8 +274,6 @@ struct ContentView: View {
         game.recordMove(uci)
         persistGame()
         
-        sendMoveToMentor(move: uci)
-
         // allow state to settle before evaluating otherwise alaways see check
         DispatchQueue.main.async {
             self.handleGameResultAfterMove()
@@ -400,6 +396,7 @@ struct ContentView: View {
         mentorMessages = [
             MentorMessage(role: .system, text: "I'm your chess mentor. Ask me about any move.")
         ]
+        mentorIsThinking = false
 
         // Promotion safety
         pendingPromotionMove = nil
@@ -432,6 +429,7 @@ struct ContentView: View {
     // MARK: AI
     
     private func sendMoveToMentor(move: String) {
+        guard mentorSettings.isEnabled else { return }
         guard !mentorUnavailableShown else { return }
         // Buffer the move
         mentorMoveBuffer.append(move)
@@ -451,9 +449,59 @@ struct ContentView: View {
         }
         
     }
+
+    private func askMentorForPositionGuide() {
+        guard mentorSettings.isEnabled else { return }
+        guard !mentorIsThinking else { return }
+
+        let recentMoves = Array(game.moveHistory.suffix(10))
+        let payload = ChessMentorPayload(
+            fen: game.fen,
+            moves: recentMoves,
+            moveNumber: game.moveHistory.count,
+            sideToMove: game.sideToMove.text,
+            playerColor: whitePlayer == .human ? "white" : "black",
+            engineEval: nil,
+            bestMove: engine.bestMove,
+            requestKind: .positionGuide,
+            sysPrompt: mentorSettings.prompt,
+            responseLanguage: mentorSettings.responseLanguage
+        )
+
+        mentorMessages.append(
+            MentorMessage(role: .user, text: "Explain this position and guide my next move.")
+        )
+
+        mentorIsThinking = true
+        Task {
+            await sendMentorPayload(payload)
+        }
+    }
+
+    @MainActor
+    private func sendMentorPayload(_ payload: ChessMentorPayload) async {
+        defer { mentorIsThinking = false }
+
+        do {
+            let response = try await mentor.sendMove(payload)
+            if let response {
+                appendAIResponse(response)
+            } else if !mentor.modelAvailable, !mentorUnavailableShown {
+                mentorUnavailableShown = true
+                appendAIResponse("Chess mentor is not available on this device.")
+            }
+        } catch {
+            appendAIResponse("I couldn't analyze the position right now.")
+        }
+    }
     
     @MainActor
     private func sendBatchedMovesToMentor() async {
+        guard mentorSettings.isEnabled else {
+            mentorMoveBuffer.removeAll()
+            return
+        }
+
         guard !mentorMoveBuffer.isEmpty else { return }
 
         let allMoves = mentorMoveBuffer
@@ -470,21 +518,12 @@ struct ContentView: View {
             playerColor: whitePlayer == .human ? "white" : "black",
             engineEval: nil,
             bestMove: engine.bestMove,
+            requestKind: .engineMove,
             sysPrompt: mentorSettings.prompt,
             responseLanguage: mentorSettings.responseLanguage
         )
 
-        do {
-            let response = try await mentor.sendMove(payload)
-            if let response {
-                appendAIResponse(response)
-            } else if !mentorUnavailableShown {
-                mentorUnavailableShown = true
-                appendAIResponse("Chess mentor is not available on this device.")
-            }
-        } catch {
-            appendAIResponse("I couldn't analyze the position right now.")
-        }
+        await sendMentorPayload(payload)
     }
     
     private func appendAIResponse(_ text: String) {

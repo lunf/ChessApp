@@ -22,4 +22,8 @@ struct Square: Hashable, Identifiable {
         let fileChar = Character(UnicodeScalar(97 + file)!)
         return "\(fileChar)\(rank + 1)"
     }
+
+    var fileLabel: String {
+        String(Character(UnicodeScalar(97 + file)!))
+    }
 }

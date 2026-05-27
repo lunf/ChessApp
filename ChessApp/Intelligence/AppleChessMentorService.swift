@@ -41,6 +41,15 @@ final class AppleChessMentorService: ChessMentorService {
     }
 
     private func buildUserPrompt(from payload: ChessMentorPayload) -> String {
+        switch payload.requestKind {
+        case .engineMove:
+            return buildEngineMovePrompt(from: payload)
+        case .positionGuide:
+            return buildPositionGuidePrompt(from: payload)
+        }
+    }
+
+    private func buildEngineMovePrompt(from payload: ChessMentorPayload) -> String {
         """
         You are a chess mentor.
         Respond ONLY in \(payload.responseLanguage).
@@ -62,6 +71,31 @@ final class AppleChessMentorService: ChessMentorService {
         Explain:
         - What is the main idea of the engine move?
         - What threat or plan does it create?
+        """
+    }
+
+    private func buildPositionGuidePrompt(from payload: ChessMentorPayload) -> String {
+        """
+        You are a chess mentor.
+        Respond ONLY in \(payload.responseLanguage).
+
+        Explain the current position to the HUMAN player and guide their next move.
+
+        Position (FEN):
+        \(payload.fen)
+
+        Recent moves:
+        \(payload.moves.isEmpty ? "No moves yet" : payload.moves.joined(separator: ", "))
+
+        Side to move:
+        \(payload.sideToMove)
+
+        Human is playing \(payload.playerColor).
+
+        Give a concise coaching answer:
+        - Who is better or what is the nature of the position?
+        - What are 1-2 candidate moves or plans for the human?
+        - What should the human watch out for immediately?
         """
     }
 }

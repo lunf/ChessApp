@@ -32,13 +32,8 @@ final class ChessMentorManager: ObservableObject {
             return nil
         }
         
-        do {
-            // Call Apple Intelligence / Foundation Models
-            return try await analyzeMove(payload)
-        } catch {
-            print("An error occurred: \(error.localizedDescription)")
-            return nil
-        }
+        // Call Apple Intelligence / Foundation Models
+        return try await analyzeMove(payload)
     }
 
     private func analyzeMove(_ payload: ChessMentorPayload) async throws -> String {

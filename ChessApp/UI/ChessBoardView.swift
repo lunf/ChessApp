@@ -33,7 +33,9 @@ struct ChessBoardView: View {
                             square: logicalSquare,
                             isSelected: logicalSquare == game.selectedSquare,
                             isLegalTarget: showLegalMoves
-                                && game.legalMoves.contains(logicalSquare)
+                                && game.legalMoves.contains(logicalSquare),
+                            showsRank: visualSquare.file == 0,
+                            showsFile: visualSquare.rank == 0
                         )
                         .onTapGesture {
                             handleTap(logicalSquare)

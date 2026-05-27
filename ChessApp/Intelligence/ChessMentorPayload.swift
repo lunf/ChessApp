@@ -13,6 +13,12 @@ struct ChessMentorPayload: Codable {
     let playerColor: String
     let engineEval: Double?
     let bestMove: String?
+    let requestKind: MentorRequestKind
     let sysPrompt: String
     let responseLanguage: String
+}
+
+enum MentorRequestKind: String, Codable {
+    case engineMove
+    case positionGuide
 }
