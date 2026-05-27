@@ -155,69 +155,7 @@ final class GameState: ObservableObject {
     // MARK: - Helpers
 
     private func syncBoard() {
-        board = Dictionary(
-            uniqueKeysWithValues: chessBoard.position.pieces.map {
-                (Square($0.square), Piece($0))
-            }
-        )
+        board = chessBoard.position.appBoard
     }
 
-}
-
-private extension Square {
-    init(_ square: ChessKit.Square) {
-        self.init(file: square.rawValue % 8, rank: square.rawValue / 8)
-    }
-
-    var chessKitSquare: ChessKit.Square {
-        ChessKit.Square(rawValue: rank * 8 + file) ?? .a1
-    }
-}
-
-private extension Piece {
-    init(_ piece: ChessKit.Piece) {
-        self.init(type: PieceType(piece.kind), color: PieceColor(piece.color))
-    }
-}
-
-private extension PieceColor {
-    init(_ color: ChessKit.Piece.Color) {
-        self = color == .white ? .white : .black
-    }
-}
-
-private extension PieceType {
-    init(_ kind: ChessKit.Piece.Kind) {
-        switch kind {
-        case .king:
-            self = .king
-        case .queen:
-            self = .queen
-        case .rook:
-            self = .rook
-        case .bishop:
-            self = .bishop
-        case .knight:
-            self = .knight
-        case .pawn:
-            self = .pawn
-        }
-    }
-}
-
-private extension ChessKit.Piece.Kind {
-    init?(_ pieceType: PieceType) {
-        switch pieceType {
-        case .queen:
-            self = .queen
-        case .rook:
-            self = .rook
-        case .bishop:
-            self = .bishop
-        case .knight:
-            self = .knight
-        case .king, .pawn:
-            return nil
-        }
-    }
 }
