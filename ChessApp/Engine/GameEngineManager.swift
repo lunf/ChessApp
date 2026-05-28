@@ -20,4 +20,5 @@ protocol GameEngineManager: AnyObject {
     func think(fen: String)
     func setPosition(fen: String)
     func stop()
+    func shutdown()
 }

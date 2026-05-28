@@ -97,6 +97,19 @@ static std::streambuf* oldCout = nullptr;
 
 void sf_init() {
     if (running) return;
+
+    {
+        std::lock_guard<std::mutex> lock(inputMutex);
+        std::queue<std::string> empty;
+        std::swap(inputQueue, empty);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(outputMutex);
+        std::queue<std::string> empty;
+        std::swap(outputQueue, empty);
+    }
+
     running = true;
 
     oldCin  = std::cin.rdbuf(&inputBuf);
@@ -136,6 +149,10 @@ const char* sf_read() {
     line = outputQueue.front();
     outputQueue.pop();
     return line.c_str();
+}
+
+bool sf_is_running() {
+    return running;
 }
 
 void sf_shutdown() {

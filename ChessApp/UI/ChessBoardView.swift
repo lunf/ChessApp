@@ -88,10 +88,8 @@ struct ChessBoardView: View {
         let from = game.selectedSquare!
         let to = square
 
-        // ───── Valid move ─────
         if !showLegalMoves || game.legalMoves.contains(to) {
             if game.isLegalMove(from: from, to: to) {
-                game.move(from: from, to: to)
                 onMove(UCIMove(from: from, to: to))
             }
             game.clearSelection()

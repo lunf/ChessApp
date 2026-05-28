@@ -48,6 +48,8 @@ final class StockfishEngine: ObservableObject, GameEngineManager {
     }
 
     func start() {
+        guard !isEngineReady else { return }
+
         sf_init()
         startReading()
 
@@ -57,6 +59,8 @@ final class StockfishEngine: ObservableObject, GameEngineManager {
 
         send("setoption name Threads value 1")
         send("setoption name Hash value 32")
+
+        isEngineReady = true
     }
 
     func setElo(_ elo: Int) {
@@ -108,6 +112,17 @@ final class StockfishEngine: ObservableObject, GameEngineManager {
         isThinking = false
     }
 
+    func shutdown() {
+        guard isEngineReady else { return }
+
+        cancelActiveSearch()
+        sf_shutdown()
+        isEngineReady = false
+        readingStarted = false
+        bestMove = nil
+        isThinking = false
+    }
+
     func send(_ cmd: String) {
         sf_send(cmd)
     }
@@ -121,7 +136,7 @@ final class StockfishEngine: ObservableObject, GameEngineManager {
         queue.async { [weak self] in
             guard let self else { return }
 
-            while true {
+            while sf_is_running() {
                 if let cStr = sf_read() {
                     let line = String(cString: cStr).trimmingCharacters(
                         in: .whitespacesAndNewlines
@@ -155,6 +170,10 @@ final class StockfishEngine: ObservableObject, GameEngineManager {
                 } else {
                     Thread.sleep(forTimeInterval: 0.01)
                 }
+            }
+
+            Task { @MainActor in
+                self.readingStarted = false
             }
         }
     }

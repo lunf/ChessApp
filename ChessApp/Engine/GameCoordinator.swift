@@ -26,6 +26,7 @@ final class GameCoordinator: ObservableObject {
 
     private var pendingPromotionMove: UCIMove?
     private var mentorUnavailableShown = false
+    private var hasStarted = false
     private var cancellables = Set<AnyCancellable>()
 
     convenience init() {
@@ -52,6 +53,12 @@ final class GameCoordinator: ObservableObject {
     }
 
     func start(elo: Int) {
+        guard !hasStarted else {
+            engine.setElo(elo)
+            return
+        }
+
+        hasStarted = true
         engine.start()
         engine.setElo(elo)
         mentor.checkModelAvailability()
@@ -73,6 +80,8 @@ final class GameCoordinator: ObservableObject {
             return
         }
 
+        guard game.move(from: move.from, to: move.to) else { return }
+
         engine.move(move.rawValue)
         game.recordMove(move.rawValue)
         persistGame()
@@ -84,7 +93,11 @@ final class GameCoordinator: ObservableObject {
     func promotePawn(from: Square, to: Square, toPiece type: PieceType) {
         guard let pendingMove = pendingPromotionMove else { return }
 
-        game.promotePawn(at: to, promoteTo: type)
+        guard game.promotePawn(from: pendingMove.from, to: pendingMove.to, promoteTo: type) else {
+            pendingPromotionMove = nil
+            promotionContext = nil
+            return
+        }
 
         let promotionMove = UCIMove(from: pendingMove.from, to: pendingMove.to, promotion: type)
         game.recordMove(promotionMove.rawValue)
@@ -273,7 +286,7 @@ final class GameCoordinator: ObservableObject {
 
     private func checkAndHandlePromotion(from: Square, to: Square) -> Bool {
         guard
-            let piece = game.piece(at: to),
+            let piece = game.piece(at: from),
             piece.type == .pawn,
             to.rank == 0 || to.rank == 7,
             player(for: piece.color) == .human
