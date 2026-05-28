@@ -191,10 +191,16 @@ final class GameCoordinator: ObservableObject {
 
         guard let move = UCIMove(uci) else { return }
 
+        let moveWasApplied: Bool
         if let promo = move.promotion {
-            game.promotePawn(from: move.from, to: move.to, promoteTo: promo)
+            moveWasApplied = game.promotePawn(from: move.from, to: move.to, promoteTo: promo)
         } else {
-            game.move(from: move.from, to: move.to)
+            moveWasApplied = game.move(from: move.from, to: move.to)
+        }
+
+        guard moveWasApplied else {
+            requestEngineMoveIfNeeded()
+            return
         }
 
         game.recordMove(move.rawValue)

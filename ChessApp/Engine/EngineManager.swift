@@ -26,6 +26,9 @@ final class EngineManager: ObservableObject {
 
     private var readingStarted = false
     private var searchDepth = 10
+    private var searchGeneration = 0
+    private var activeSearchGeneration: Int?
+    private var suppressedBestMoveCount = 0
 
     // Default values
     let minElo = 1347
@@ -59,6 +62,7 @@ final class EngineManager: ObservableObject {
     }
 
     func newGame() {
+        cancelActiveSearch()
         send("stop")
         send("ucinewgame")
         send("isready")
@@ -72,6 +76,8 @@ final class EngineManager: ObservableObject {
     func think(fen: String) {
         guard !isThinking else { return }
 
+        searchGeneration += 1
+        activeSearchGeneration = searchGeneration
         bestMove = nil
         isThinking = true
 
@@ -81,12 +87,14 @@ final class EngineManager: ObservableObject {
     }
     
     func setPosition(fen: String) {
+        cancelActiveSearch()
         send("stop")
         send("position fen \(fen)")
         send("isready")
     }
 
     func stop() {
+        cancelActiveSearch()
         send("stop")
         bestMove = nil
         isThinking = false
@@ -119,8 +127,20 @@ final class EngineManager: ObservableObject {
 
                             // Hop to the main actor before touching main-actor isolated state.
                             Task { @MainActor in
+                                if self.suppressedBestMoveCount > 0 {
+                                    self.suppressedBestMoveCount -= 1
+                                    return
+                                }
+
+                                guard self.isThinking,
+                                      self.activeSearchGeneration != nil
+                                else {
+                                    return
+                                }
+
                                 self.bestMove = move
                                 self.isThinking = false
+                                self.activeSearchGeneration = nil
                             }
                         }
                     }
@@ -129,6 +149,17 @@ final class EngineManager: ObservableObject {
                 }
             }
         }
+    }
+
+    private func cancelActiveSearch() {
+        if activeSearchGeneration != nil {
+            suppressedBestMoveCount += 1
+        }
+
+        searchGeneration += 1
+        activeSearchGeneration = nil
+        isThinking = false
+        bestMove = nil
     }
 
     private func configureNNUE() {

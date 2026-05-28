@@ -77,9 +77,10 @@ final class GameState: ObservableObject {
         chessBoard.canMove(pieceAt: from.chessKitSquare, to: to.chessKitSquare)
     }
 
-    func move(from: Square, to: Square) {
+    @discardableResult
+    func move(from: Square, to: Square) -> Bool {
         guard chessBoard.move(pieceAt: from.chessKitSquare, to: to.chessKitSquare) != nil else {
-            return
+            return false
         }
 
         if case .promotion(let promotionMove) = chessBoard.state {
@@ -89,16 +90,18 @@ final class GameState: ObservableObject {
         }
 
         syncBoard()
+        return true
     }
 
-    func applyUCIMove(_ uciMove: String) {
-        guard let move = UCIMove(uciMove) else { return }
+    @discardableResult
+    func applyUCIMove(_ uciMove: String) -> Bool {
+        guard let move = UCIMove(uciMove) else { return false }
 
         if let promotion = move.promotion {
-            promotePawn(from: move.from, to: move.to, promoteTo: promotion)
-        } else {
-            self.move(from: move.from, to: move.to)
+            return promotePawn(from: move.from, to: move.to, promoteTo: promotion)
         }
+
+        return self.move(from: move.from, to: move.to)
     }
 
     func gameResult() -> GameResult {
@@ -119,33 +122,42 @@ final class GameState: ObservableObject {
 
     // MARK: - Promotion
 
-    func promotePawn(from: Square, to: Square, promoteTo newType: PieceType) {
-        guard let kind = ChessKit.Piece.Kind(newType) else { return }
+    @discardableResult
+    func promotePawn(from: Square, to: Square, promoteTo newType: PieceType) -> Bool {
+        guard let kind = ChessKit.Piece.Kind(newType) else { return false }
+        guard board[from]?.type == .pawn, to.rank == 0 || to.rank == 7 else {
+            return false
+        }
         guard chessBoard.move(pieceAt: from.chessKitSquare, to: to.chessKitSquare) != nil else {
-            return
+            return false
         }
 
         if case .promotion(let move) = chessBoard.state {
             chessBoard.completePromotion(of: move, to: kind)
+        } else {
+            return false
         }
 
         pendingPromotionMove = nil
         syncBoard()
         clearSelection()
+        return true
     }
 
-    func promotePawn(at square: Square, promoteTo newType: PieceType) {
+    @discardableResult
+    func promotePawn(at square: Square, promoteTo newType: PieceType) -> Bool {
         guard let pendingPromotionMove,
               pendingPromotionMove.end == square.chessKitSquare,
               let kind = ChessKit.Piece.Kind(newType)
         else {
-            return
+            return false
         }
 
         chessBoard.completePromotion(of: pendingPromotionMove, to: kind)
         self.pendingPromotionMove = nil
         syncBoard()
         clearSelection()
+        return true
     }
 
     func isPromotionSquare(piece: Piece, to square: Square) -> Bool {
