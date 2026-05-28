@@ -8,7 +8,7 @@ import Foundation
 
 @MainActor
 final class GameCoordinator: ObservableObject {
-    let engine: EngineManager
+    let engine: any GameEngineManager
     let mentorSettings: MentorSettings
     let mentor: ChessMentorManager
     let game: GameState
@@ -30,7 +30,7 @@ final class GameCoordinator: ObservableObject {
 
     convenience init() {
         self.init(
-            engine: .shared,
+            engine: StockfishEngine.shared,
             mentorSettings: MentorSettings(),
             mentorService: AppleChessMentorService(),
             game: GameState()
@@ -38,7 +38,7 @@ final class GameCoordinator: ObservableObject {
     }
 
     init(
-        engine: EngineManager,
+        engine: any GameEngineManager,
         mentorSettings: MentorSettings,
         mentorService: ChessMentorService,
         game: GameState
@@ -169,11 +169,18 @@ final class GameCoordinator: ObservableObject {
     // MARK: - Engine
 
     private func bindEngine() {
-        engine.$bestMove
+        engine.bestMovePublisher
             .compactMap { $0 }
             .sink { [weak self] move in
                 guard let self, !self.isResetting else { return }
                 self.applyEngineMove(move)
+            }
+            .store(in: &cancellables)
+
+        engine.isThinkingPublisher
+            .dropFirst()
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
             }
             .store(in: &cancellables)
     }

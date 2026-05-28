@@ -1,5 +1,5 @@
 //
-//  EengineManager.swift
+//  StockfishEngine.swift
 //  ChessApp
 //
 //  Created by cuong.nguyenhat on 14/12/25.
@@ -14,9 +14,9 @@ enum EngineEvent {
 }
 
 @MainActor
-final class EngineManager: ObservableObject {
+final class StockfishEngine: ObservableObject, GameEngineManager {
 
-    static let shared = EngineManager()
+    static let shared = StockfishEngine()
 
     private let queue = DispatchQueue(label: "stockfish.engine.queue")
     private var isEngineReady = false
@@ -38,6 +38,14 @@ final class EngineManager: ObservableObject {
     let maxDepth = 14
 
     private init() {}
+
+    var bestMovePublisher: AnyPublisher<String?, Never> {
+        $bestMove.eraseToAnyPublisher()
+    }
+
+    var isThinkingPublisher: AnyPublisher<Bool, Never> {
+        $isThinking.eraseToAnyPublisher()
+    }
 
     func start() {
         sf_init()
