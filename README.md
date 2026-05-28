@@ -7,6 +7,7 @@ The app is intentionally built as a chess UI: ChessKit maintains board state and
 <p align="center">
   <img src="Preview/preview-01.jpg" width="280" alt="Preview">
 </p>
+
 ## Features
 
 - Play as White or Black
