@@ -31,8 +31,8 @@
 		2660581E2EF04F8700EC80BF /* nnue_misc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 266058172EF04F8700EC80BF /* nnue_misc.cpp */; };
 		2660581F2EF04FDF00EC80BF /* evaluate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 266057AC2EF04BE200EC80BF /* evaluate.cpp */; };
 		266058202EF057E900EC80BF /* network.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 266058102EF04F8700EC80BF /* network.cpp */; };
-		266058222EF05CC400EC80BF /* nnue_instantiations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 266058212EF05CC400EC80BF /* nnue_instantiations.cpp */; };
 		266058232EF05F9000EC80BF /* benchmark.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 266057A62EF04BE200EC80BF /* benchmark.cpp */; };
+		266058242EF061000EC80BF /* attacks.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 266058262EF061000EC80BF /* attacks.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -102,7 +102,8 @@
 		266058162EF04F8700EC80BF /* nnue_misc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nnue_misc.h; sourceTree = "<group>"; };
 		266058172EF04F8700EC80BF /* nnue_misc.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nnue_misc.cpp; sourceTree = "<group>"; };
 		266058182EF04F8700EC80BF /* simd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = simd.h; sourceTree = "<group>"; };
-		266058212EF05CC400EC80BF /* nnue_instantiations.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = nnue_instantiations.cpp; sourceTree = "<group>"; };
+		266058252EF061000EC80BF /* attacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = attacks.h; sourceTree = "<group>"; };
+		266058262EF061000EC80BF /* attacks.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = attacks.cpp; sourceTree = "<group>"; };
 		26BADA9C2F00402100E9DC2F /* README.md */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -130,7 +131,7 @@
 			isa = PBXGroup;
 			children = (
 				26BADA9C2F00402100E9DC2F /* README.md */,
-				266057A42EF04AEC00EC80BF /* Stockfish */,
+				266057A42EF04AEC00EC80BF /* Stockfish/src */,
 				264BFB512EEF054B00078448 /* ChessApp */,
 				264BFB502EEF054B00078448 /* Products */,
 			);
@@ -144,12 +145,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		266057A42EF04AEC00EC80BF /* Stockfish */ = {
+		266057A42EF04AEC00EC80BF /* Stockfish/src */ = {
 			isa = PBXGroup;
 			children = (
 				266058192EF04F8700EC80BF /* nnue */,
 				266058032EF04D5D00EC80BF /* incbin */,
 				266057FF2EF04D4600EC80BF /* syzygy */,
+				266058252EF061000EC80BF /* attacks.h */,
+				266058262EF061000EC80BF /* attacks.cpp */,
 				266057A52EF04BE200EC80BF /* benchmark.h */,
 				266057A62EF04BE200EC80BF /* benchmark.cpp */,
 				266057A72EF04BE200EC80BF /* bitboard.h */,
@@ -194,7 +197,7 @@
 				266057CE2EF04BE200EC80BF /* ucioption.h */,
 				266057CF2EF04BE200EC80BF /* ucioption.cpp */,
 			);
-			path = Stockfish;
+			path = Stockfish/src;
 			sourceTree = "<group>";
 		};
 		266057FF2EF04D4600EC80BF /* syzygy */ = {
@@ -252,7 +255,6 @@
 				266058162EF04F8700EC80BF /* nnue_misc.h */,
 				266058172EF04F8700EC80BF /* nnue_misc.cpp */,
 				266058182EF04F8700EC80BF /* simd.h */,
-				266058212EF05CC400EC80BF /* nnue_instantiations.cpp */,
 			);
 			path = nnue;
 			sourceTree = "<group>";
@@ -352,9 +354,9 @@
 				266057DB2EF04BE200EC80BF /* movegen.cpp in Sources */,
 				2660581A2EF04F8700EC80BF /* full_threats.cpp in Sources */,
 				2660581B2EF04F8700EC80BF /* nnue_accumulator.cpp in Sources */,
-				266058222EF05CC400EC80BF /* nnue_instantiations.cpp in Sources */,
 				2660581D2EF04F8700EC80BF /* half_ka_v2_hm.cpp in Sources */,
 				2660581E2EF04F8700EC80BF /* nnue_misc.cpp in Sources */,
+				266058242EF061000EC80BF /* attacks.cpp in Sources */,
 				266057DD2EF04BE200EC80BF /* thread.cpp in Sources */,
 				266057DE2EF04BE200EC80BF /* memory.cpp in Sources */,
 				266057DF2EF04BE200EC80BF /* timeman.cpp in Sources */,
@@ -497,8 +499,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T4APXL6Q9S;
 				ENABLE_PREVIEWS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -507,19 +511,21 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/Stockfish/src/**";
-				INFOPLIST_KEY_CFBundleDisplayName = AiChess;
+				INFOPLIST_KEY_CFBundleDisplayName = Chesswise;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.github.lunf.ChessApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.lunf.AiChessApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -539,25 +545,29 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T4APXL6Q9S;
 				ENABLE_PREVIEWS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "NNUE_EMBEDDING_OFF=1";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/Stockfish/src/**";
-				INFOPLIST_KEY_CFBundleDisplayName = AiChess;
+				INFOPLIST_KEY_CFBundleDisplayName = Chesswise;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.github.lunf.ChessApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.lunf.AiChessApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;

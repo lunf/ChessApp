@@ -171,18 +171,22 @@ final class StockfishEngine: ObservableObject, GameEngineManager {
     }
 
     private func configureNNUE() {
-        let big = Bundle.main.path(
-            forResource: "nn-2962dca31855",
-            ofType: "nnue"
-        )!
+        let fileName = "nn-71d6d32cb962.nnue"
 
-        let small = Bundle.main.path(
-            forResource: "nn-37f18f62d772",
-            ofType: "nnue"
-        )!
+        guard let url = Bundle.main.url(
+            forResource: "nn-71d6d32cb962",
+            withExtension: "nnue"
+        ) else {
+            print("Missing Stockfish NNUE file: \(fileName). Engine will continue with Stockfish defaults.")
+            return
+        }
 
-        send("setoption name EvalFile value \(big)")
-        send("setoption name EvalFileSmall value \(small)")
+        guard FileManager.default.isReadableFile(atPath: url.path) else {
+            print("Stockfish NNUE file is not readable: \(url.path). Engine will continue with Stockfish defaults.")
+            return
+        }
+
+        send("setoption name EvalFile value \(url.path)")
     }
 
     private func depthForElo(_ elo: Int) -> Int {

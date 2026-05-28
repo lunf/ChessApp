@@ -134,27 +134,13 @@ final class GameCoordinator: ObservableObject {
         guard mentorSettings.isEnabled else { return }
         guard !mentorIsThinking else { return }
 
-        let recentMoves = Array(game.moveHistory.suffix(10))
-        let payload = ChessMentorPayload(
-            fen: game.fen,
-            moves: recentMoves,
-            moveNumber: game.moveHistory.count,
-            sideToMove: game.sideToMove.text,
-            playerColor: whitePlayer == .human ? "white" : "black",
-            engineEval: nil,
-            bestMove: engine.bestMove,
-            requestKind: .positionGuide,
-            sysPrompt: mentorSettings.prompt,
-            responseLanguage: mentorSettings.responseLanguage
-        )
-
         mentorMessages.append(
             MentorMessage(role: .user, text: "Explain this position and guide my next move.")
         )
 
         mentorIsThinking = true
         Task {
-            await sendMentorPayload(payload)
+            await sendMentorPayload(makeMentorPayload(requestKind: .positionGuide))
         }
     }
 
@@ -300,6 +286,21 @@ final class GameCoordinator: ObservableObject {
     }
 
     // MARK: - Mentor
+
+    private func makeMentorPayload(requestKind: MentorRequestKind) -> ChessMentorPayload {
+        ChessMentorPayload(
+            fen: game.fen,
+            moves: game.moveHistory,
+            moveNumber: game.moveHistory.count,
+            sideToMove: game.sideToMove.text,
+            playerColor: whitePlayer == .human ? "white" : "black",
+            engineEval: nil,
+            bestMove: engine.bestMove,
+            requestKind: requestKind,
+            sysPrompt: mentorSettings.prompt,
+            responseLanguage: mentorSettings.responseLanguage
+        )
+    }
 
     private func sendMentorPayload(_ payload: ChessMentorPayload) async {
         defer { mentorIsThinking = false }

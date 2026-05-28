@@ -17,11 +17,14 @@ struct ContentView: View {
             VStack {
                 boardView
                 Divider()
-                MentorChatView(messages: coordinator.mentorMessages)
+                MentorChatView(
+                    messages: coordinator.mentorMessages,
+                    isThinking: coordinator.mentorIsThinking
+                )
                     .frame(maxHeight: .infinity)
             }
             .padding()
-            .navigationTitle("Ai Chess")
+            .navigationTitle("Chesswise")
             .navigationBarTitleDisplayMode(.inline)
             .animation(.easeInOut(duration: 0.25), value: coordinator.engine.isThinking)
             .toolbar { toolbarContent }

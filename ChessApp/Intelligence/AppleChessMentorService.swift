@@ -33,7 +33,7 @@ final class AppleChessMentorService: ChessMentorService {
             to: userPrompt,
             options: GenerationOptions(
                 temperature: 0.4,
-                maximumResponseTokens: 300
+                maximumResponseTokens: 800
             )
         )
 
@@ -53,6 +53,9 @@ final class AppleChessMentorService: ChessMentorService {
         """
         You are a chess mentor.
         Respond ONLY in \(payload.responseLanguage).
+        You may use concise Markdown formatting and emoji when it helps clarity.
+        Format as Markdown with short sections, blank lines between sections, and bullet points on separate lines. Avoid one long paragraph.
+        Keep the full response under 800 tokens.
         
         The ENGINE has just played a move.
         Your job is to explain the ENGINE'S decision to the HUMAN player.
@@ -60,8 +63,8 @@ final class AppleChessMentorService: ChessMentorService {
         Position (FEN):
         \(payload.fen)
 
-        Recent moves (for context, last 5):
-        \(payload.moves.joined(separator: ", "))
+        Full move history (UCI):
+        \(payload.moves.isEmpty ? "No moves yet" : payload.moves.joined(separator: ", "))
 
         Human is playing \(payload.playerColor).
 
@@ -78,13 +81,16 @@ final class AppleChessMentorService: ChessMentorService {
         """
         You are a chess mentor.
         Respond ONLY in \(payload.responseLanguage).
+        You may use concise Markdown formatting and emoji when it helps clarity.
+        Format as Markdown with short sections, blank lines between sections, and bullet points on separate lines. Avoid one long paragraph.
+        Keep the full response under 800 tokens.
 
         Explain the current position to the HUMAN player and guide their next move.
 
         Position (FEN):
         \(payload.fen)
 
-        Recent moves:
+        Full move history (UCI):
         \(payload.moves.isEmpty ? "No moves yet" : payload.moves.joined(separator: ", "))
 
         Side to move:
@@ -98,4 +104,5 @@ final class AppleChessMentorService: ChessMentorService {
         - What should the human watch out for immediately?
         """
     }
+
 }

@@ -13,10 +13,10 @@
 #include <string>
 #include <thread>
 
+#include "attacks.h"
 #include "bitboard.h"
 #include "engine.h"
 #include "misc.h"
-#include "full_threats.h"
 #include "position.h"
 #include "tune.h"
 #include "uci.h"
@@ -107,8 +107,8 @@ void sf_init() {
         char* argv[] = { (char*)"stockfish" };
 
         Bitboards::init();
+        Attacks::init();
         Position::init();
-        Eval::NNUE::Features::init_threat_offsets();
 
         uci = std::make_unique<UCIEngine>(argc, argv);
         Tune::init(uci->engine_options());
