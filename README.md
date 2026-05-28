@@ -4,6 +4,9 @@ Chesswise is a SwiftUI iOS chess app with a Stockfish-powered opponent and an on
 
 The app is intentionally built as a chess UI: ChessKit maintains board state and legal moves, Stockfish provides engine moves, and Apple Foundation Models provides short coaching explanations when the player asks for help.
 
+<p align="center">
+  <img src="Preview/preview-01.jpg" width="280" alt="Preview">
+</p>
 ## Features
 
 - Play as White or Black
