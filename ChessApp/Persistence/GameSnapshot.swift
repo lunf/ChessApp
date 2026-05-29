@@ -10,4 +10,5 @@ struct GameSnapshot: Codable {
     let moves: [String]
     let whitePlayer: PlayerType
     let blackPlayer: PlayerType
+    let startedFromSetup: Bool?
 }

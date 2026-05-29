@@ -40,16 +40,18 @@ final class GameState: ObservableObject {
         clearSelection()
     }
 
-    func load(fromFEN fen: String) {
+    @discardableResult
+    func load(fromFEN fen: String) -> Bool {
         guard let position = ChessKit.Position(fen: fen) else {
-            assertionFailure("Invalid FEN: \(fen)")
-            return
+            print("Invalid FEN: \(fen)")
+            return false
         }
 
         chessBoard = ChessKit.Board(position: position)
         pendingPromotionMove = nil
         syncBoard()
         clearSelection()
+        return true
     }
 
     func recordMove(_ uci: String) {

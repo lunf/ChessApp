@@ -8,6 +8,9 @@ import Foundation
 
 @MainActor
 final class GameCoordinator: ObservableObject {
+    private static let lockedMentorIntro = "AI guidance unlocks after 5 moves, or immediately when you start from a setup/FEN position."
+    private static let readyMentorIntro = "AI mentor is ready. Ask for guidance when you want a position review."
+
     let engine: any GameEngineManager
     let mentorSettings: MentorSettings
     let mentor: ChessMentorManager
@@ -20,13 +23,15 @@ final class GameCoordinator: ObservableObject {
     @Published var isResetting = false
     @Published var promotionContext: PromotionContext?
     @Published var mentorMessages: [MentorMessage] = [
-        MentorMessage(role: .system, text: "I'm your chess mentor. Ask me about any move.")
+        MentorMessage(role: .system, text: GameCoordinator.lockedMentorIntro)
     ]
     @Published var mentorIsThinking = false
+    @Published private(set) var positionCanUseMentor = false
 
     private var pendingPromotionMove: UCIMove?
     private var mentorUnavailableShown = false
     private var hasStarted = false
+    private var startedFromSetup = false
     private var cancellables = Set<AnyCancellable>()
 
     convenience init() {
@@ -84,6 +89,7 @@ final class GameCoordinator: ObservableObject {
 
         engine.move(move.rawValue)
         game.recordMove(move.rawValue)
+        updateMentorGate()
         persistGame()
 
         handleGameResultAfterMove()
@@ -101,6 +107,7 @@ final class GameCoordinator: ObservableObject {
 
         let promotionMove = UCIMove(from: pendingMove.from, to: pendingMove.to, promotion: type)
         game.recordMove(promotionMove.rawValue)
+        updateMentorGate()
         engine.move(promotionMove.rawValue)
 
         pendingPromotionMove = nil
@@ -143,9 +150,45 @@ final class GameCoordinator: ObservableObject {
         }
     }
 
+    @discardableResult
+    func startFromFEN(_ fen: String) -> Bool {
+        isResetting = true
+
+        GameStorage.clear()
+        engine.stop()
+        engine.newGame()
+
+        guard game.load(fromFEN: fen) else {
+            isResetting = false
+            return false
+        }
+
+        game.setMoveHistory([])
+        startedFromSetup = true
+        updateMentorGate()
+        gameResult = .ongoing
+        engine.setPosition(fen: game.fen)
+
+        resetMentor()
+
+        pendingPromotionMove = nil
+        promotionContext = nil
+
+        persistGame()
+
+        DispatchQueue.main.async {
+            self.isResetting = false
+            self.handleGameResultAfterMove()
+            self.requestEngineMoveIfNeeded()
+        }
+
+        return true
+    }
+
     func askMentorForPositionGuide() {
         guard mentorSettings.isEnabled else { return }
         guard !mentorIsThinking else { return }
+        guard positionCanUseMentor else { return }
 
         mentorMessages.append(
             MentorMessage(role: .user, text: "Explain this position and guide my next move.")
@@ -210,6 +253,7 @@ final class GameCoordinator: ObservableObject {
         }
 
         game.recordMove(move.rawValue)
+        updateMentorGate()
         persistGame()
 
         DispatchQueue.main.async {
@@ -271,6 +315,8 @@ final class GameCoordinator: ObservableObject {
         GameStorage.clear()
         engine.stop()
         game.reset()
+        startedFromSetup = false
+        updateMentorGate()
         gameResult = .ongoing
         engine.newGame()
 
@@ -338,9 +384,33 @@ final class GameCoordinator: ObservableObject {
     private func resetMentor() {
         mentorUnavailableShown = false
         mentorMessages = [
-            MentorMessage(role: .system, text: "I'm your chess mentor. Ask me about any move.")
+            MentorMessage(role: .system, text: mentorIntroText)
         ]
         mentorIsThinking = false
+    }
+
+    private func updateMentorGate() {
+        let canUseMentor = startedFromSetup || game.moveHistory.count >= 5
+        guard canUseMentor != positionCanUseMentor else { return }
+
+        positionCanUseMentor = canUseMentor
+        updateMentorIntroIfNeeded()
+    }
+
+    private var mentorIntroText: String {
+        positionCanUseMentor ? Self.readyMentorIntro : Self.lockedMentorIntro
+    }
+
+    private func updateMentorIntroIfNeeded() {
+        guard mentorMessages.count == 1,
+              mentorMessages.first?.role == .system
+        else {
+            return
+        }
+
+        mentorMessages = [
+            MentorMessage(role: .system, text: mentorIntroText)
+        ]
     }
 
     // MARK: - Storage
@@ -350,7 +420,8 @@ final class GameCoordinator: ObservableObject {
             fen: game.fen,
             moves: game.moveHistory,
             whitePlayer: whitePlayer,
-            blackPlayer: blackPlayer
+            blackPlayer: blackPlayer,
+            startedFromSetup: startedFromSetup
         )
         GameStorage.save(snapshot)
     }
@@ -363,6 +434,8 @@ final class GameCoordinator: ObservableObject {
 
         game.load(fromFEN: snapshot.fen)
         game.setMoveHistory(snapshot.moves)
+        startedFromSetup = snapshot.startedFromSetup ?? false
+        updateMentorGate()
 
         whitePlayer = snapshot.whitePlayer
         blackPlayer = snapshot.blackPlayer

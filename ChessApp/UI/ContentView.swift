@@ -11,6 +11,7 @@ struct ContentView: View {
     @StateObject private var coordinator = GameCoordinator()
     @StateObject private var gameSettings = GameSettings()
     @State private var showSettings = false
+    @State private var showPositionSetup = false
 
     var body: some View {
         NavigationStack {
@@ -40,6 +41,7 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showSettings, content: settingsSheet)
+            .sheet(isPresented: $showPositionSetup, content: positionSetupSheet)
             .sheet(item: $coordinator.promotionContext, content: promotionSheet)
         }
     }
@@ -74,7 +76,21 @@ struct ContentView: View {
     private var toolbarContent: some ToolbarContent {
         Group {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button("New Game", action: coordinator.startNewGame)
+                Menu {
+                    Button {
+                        coordinator.startNewGame()
+                    } label: {
+                        Label("New Game", systemImage: "plus.circle")
+                    }
+
+                    Button {
+                        showPositionSetup = true
+                    } label: {
+                        Label("Setup Position", systemImage: "square.grid.3x3")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
             }
 
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -84,7 +100,11 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "sparkles")
                     }
-                    .disabled(coordinator.mentorIsThinking || !coordinator.mentorSettings.isEnabled)
+                    .disabled(
+                        coordinator.mentorIsThinking
+                        || !coordinator.mentorSettings.isEnabled
+                        || !coordinator.positionCanUseMentor
+                    )
 
                     Button {
                         showSettings = true
@@ -116,6 +136,12 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func positionSetupSheet() -> some View {
+        PositionSetupView(initialFEN: coordinator.game.fen) { fen in
+            coordinator.startFromFEN(fen)
         }
     }
 

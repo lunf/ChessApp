@@ -4,7 +4,7 @@
 //
 //  Created by cuong.nguyenhat on 20/12/25.
 //
-enum PieceType {
+enum PieceType: Hashable {
     case king, queen, rook, bishop, knight, pawn
     
     // UCI promotion character (lowercase)
@@ -29,7 +29,7 @@ enum PieceType {
     }
 }
 
-enum PieceColor {
+enum PieceColor: Hashable {
     case white, black
     
     var opposite: PieceColor {
@@ -41,7 +41,7 @@ enum PieceColor {
     }
 }
 
-struct Piece: Equatable {
+struct Piece: Equatable, Hashable {
 
     let type: PieceType
     let color: PieceColor
