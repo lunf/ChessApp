@@ -79,6 +79,11 @@ final class GameCoordinator: ObservableObject {
         engine.setElo(elo)
     }
 
+    func shutdown() {
+        stopClock()
+        engine.shutdown()
+    }
+
     func setClockPreset(_ preset: ClockPreset) {
         guard clockPreset != preset else { return }
 

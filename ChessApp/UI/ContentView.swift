@@ -33,8 +33,12 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.25), value: coordinator.engine.isThinking)
             .toolbar { toolbarContent }
             .onAppear {
+                guard !AppEnvironment.isRunningTests else { return }
                 coordinator.start(elo: Int(gameSettings.elo))
                 coordinator.setClockPreset(gameSettings.clockPreset)
+            }
+            .onDisappear {
+                coordinator.shutdown()
             }
             .onChange(of: gameSettings.elo) { _, newValue in
                 coordinator.setElo(Int(newValue))

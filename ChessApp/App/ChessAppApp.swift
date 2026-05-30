@@ -11,7 +11,11 @@ import SwiftUI
 struct ChessAppApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if AppEnvironment.isRunningTests {
+                EmptyView()
+            } else {
+                ContentView()
+            }
         }
     }
 }
