@@ -17,6 +17,9 @@ struct ContentView: View {
         NavigationStack {
             VStack {
                 boardView
+                if gameSettings.showMoveList {
+                    MoveListView(moves: coordinator.game.moveNotations)
+                }
                 Divider()
                 MentorChatView(
                     messages: coordinator.mentorMessages,
@@ -151,6 +154,7 @@ struct ContentView: View {
                     set: { gameSettings.updateSide($0) }
                 ),
                 showLegalMoves: $gameSettings.showLegalMoves,
+                showMoveList: $gameSettings.showMoveList,
                 elo: $gameSettings.elo,
                 clockPreset: Binding(
                     get: { gameSettings.clockPreset },

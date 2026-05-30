@@ -10,6 +10,7 @@ struct SettingsView: View {
     @ObservedObject var mentorSettings: MentorSettings
     @Binding var sideSelection: SideSelection
     @Binding var showLegalMoves: Bool
+    @Binding var showMoveList: Bool
     @Binding var elo: Double
     @Binding var clockPreset: ClockPreset
 
@@ -26,6 +27,7 @@ struct SettingsView: View {
 
             Section("Gameplay") {
                 Toggle("Show move hints", isOn: $showLegalMoves)
+                Toggle("Show move list", isOn: $showMoveList)
 
                 Picker("Clock", selection: $clockPreset) {
                     ForEach(ClockPreset.allCases) { preset in

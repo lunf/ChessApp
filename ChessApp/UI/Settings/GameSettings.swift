@@ -23,6 +23,9 @@ final class GameSettings: ObservableObject {
     @AppStorage("show_legal_moves")
     var showLegalMoves = true
 
+    @AppStorage("show_move_list")
+    var showMoveList = true
+
     @AppStorage("clock_preset")
     private var clockPresetRaw: String = ClockPreset.off.rawValue
 

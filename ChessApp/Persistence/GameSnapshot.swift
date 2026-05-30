@@ -8,6 +8,7 @@
 struct GameSnapshot: Codable {
     let fen: String
     let moves: [String]
+    let moveNotations: [String]?
     let whitePlayer: PlayerType
     let blackPlayer: PlayerType
     let startedFromSetup: Bool?

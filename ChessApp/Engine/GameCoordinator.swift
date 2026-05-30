@@ -182,6 +182,7 @@ final class GameCoordinator: ObservableObject {
         }
 
         game.setMoveHistory([])
+        game.setMoveNotations([])
         startedFromSetup = true
         updateMentorGate()
         resetClockTimes()
@@ -536,6 +537,7 @@ final class GameCoordinator: ObservableObject {
         let snapshot = GameSnapshot(
             fen: game.fen,
             moves: game.moveHistory,
+            moveNotations: game.moveNotations,
             whitePlayer: whitePlayer,
             blackPlayer: blackPlayer,
             startedFromSetup: startedFromSetup,
@@ -554,6 +556,7 @@ final class GameCoordinator: ObservableObject {
 
         game.load(fromFEN: snapshot.fen)
         game.setMoveHistory(snapshot.moves)
+        game.setMoveNotations(snapshot.moveNotations ?? snapshot.moves)
         startedFromSetup = snapshot.startedFromSetup ?? false
         updateMentorGate()
 

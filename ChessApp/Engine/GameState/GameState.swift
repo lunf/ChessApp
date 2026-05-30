@@ -16,9 +16,11 @@ final class GameState: ObservableObject {
     @Published var selectedSquare: Square?
     @Published var legalMoves: Set<Square> = []
     @Published private(set) var moveHistory: [String] = []
+    @Published private(set) var moveNotations: [String] = []
 
     private var chessBoard = ChessKit.Board()
     private var pendingPromotionMove: ChessKit.Move?
+    private(set) var lastMoveNotation: String?
 
     var sideToMove: PieceColor {
         PieceColor(chessBoard.position.sideToMove)
@@ -36,6 +38,8 @@ final class GameState: ObservableObject {
         chessBoard = ChessKit.Board()
         pendingPromotionMove = nil
         moveHistory.removeAll()
+        moveNotations.removeAll()
+        lastMoveNotation = nil
         syncBoard()
         clearSelection()
     }
@@ -49,17 +53,23 @@ final class GameState: ObservableObject {
 
         chessBoard = ChessKit.Board(position: position)
         pendingPromotionMove = nil
+        lastMoveNotation = nil
         syncBoard()
         clearSelection()
         return true
     }
 
-    func recordMove(_ uci: String) {
+    func recordMove(_ uci: String, notation: String? = nil) {
         moveHistory.append(uci)
+        moveNotations.append(notation ?? lastMoveNotation ?? uci)
     }
 
     func setMoveHistory(_ moves: [String]) {
         moveHistory = moves
+    }
+
+    func setMoveNotations(_ notations: [String]) {
+        moveNotations = notations
     }
 
     func clearSelection() {
@@ -81,14 +91,16 @@ final class GameState: ObservableObject {
 
     @discardableResult
     func move(from: Square, to: Square) -> Bool {
-        guard chessBoard.move(pieceAt: from.chessKitSquare, to: to.chessKitSquare) != nil else {
+        guard let move = chessBoard.move(pieceAt: from.chessKitSquare, to: to.chessKitSquare) else {
             return false
         }
 
         if case .promotion(let promotionMove) = chessBoard.state {
             pendingPromotionMove = promotionMove
+            lastMoveNotation = nil
         } else {
             pendingPromotionMove = nil
+            lastMoveNotation = move.san
         }
 
         syncBoard()
@@ -135,7 +147,8 @@ final class GameState: ObservableObject {
         }
 
         if case .promotion(let move) = chessBoard.state {
-            chessBoard.completePromotion(of: move, to: kind)
+            let completedMove = chessBoard.completePromotion(of: move, to: kind)
+            lastMoveNotation = completedMove.san
         } else {
             return false
         }
@@ -155,7 +168,8 @@ final class GameState: ObservableObject {
             return false
         }
 
-        chessBoard.completePromotion(of: pendingPromotionMove, to: kind)
+        let completedMove = chessBoard.completePromotion(of: pendingPromotionMove, to: kind)
+        lastMoveNotation = completedMove.san
         self.pendingPromotionMove = nil
         syncBoard()
         clearSelection()
