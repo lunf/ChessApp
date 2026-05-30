@@ -23,8 +23,14 @@ final class GameSettings: ObservableObject {
     @AppStorage("show_legal_moves")
     var showLegalMoves = true
 
+    @AppStorage("clock_preset")
+    private var clockPresetRaw: String = ClockPreset.off.rawValue
+
+    @Published var clockPreset: ClockPreset = .off
+
     init() {
         sideSelection = SideSelection(rawValue: sideSelectionRaw) ?? .white
+        clockPreset = ClockPreset(rawValue: clockPresetRaw) ?? .off
     }
 
     // Keep AppStorage and Published in sync
@@ -32,5 +38,11 @@ final class GameSettings: ObservableObject {
         guard sideSelection != newSide else { return }
         sideSelection = newSide
         sideSelectionRaw = newSide.rawValue
+    }
+
+    func updateClockPreset(_ newPreset: ClockPreset) {
+        guard clockPreset != newPreset else { return }
+        clockPreset = newPreset
+        clockPresetRaw = newPreset.rawValue
     }
 }

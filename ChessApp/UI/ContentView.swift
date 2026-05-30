@@ -31,9 +31,13 @@ struct ContentView: View {
             .toolbar { toolbarContent }
             .onAppear {
                 coordinator.start(elo: Int(gameSettings.elo))
+                coordinator.setClockPreset(gameSettings.clockPreset)
             }
             .onChange(of: gameSettings.elo) { _, newValue in
                 coordinator.setElo(Int(newValue))
+            }
+            .onChange(of: gameSettings.clockPreset) { _, newPreset in
+                coordinator.setClockPreset(newPreset)
             }
             .onChange(of: gameSettings.sideSelection) { _, newSide in
                 DispatchQueue.main.async {
@@ -47,30 +51,52 @@ struct ContentView: View {
     }
 
     private var boardView: some View {
-        ZStack(alignment: .top) {
-            ChessBoardView(
-                game: coordinator.game,
-                showLegalMoves: gameSettings.showLegalMoves,
-                flipped: coordinator.boardFlipped,
-                onMove: coordinator.handleUserMove
-            )
-            .aspectRatio(1, contentMode: .fit)
-            .allowsHitTesting(coordinator.canHumanInteract)
-
-            if coordinator.engine.isThinking {
-                ThinkingIndicator()
-                    .shadow(radius: 2)
-                    .padding(.top, -2)
+        VStack(spacing: 8) {
+            if coordinator.clockIsEnabled {
+                clockRow
             }
 
-            if coordinator.gameResult != .ongoing {
-                GameOverOverlay(result: coordinator.gameResult)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.25)))
-                    .zIndex(10)
+            ZStack(alignment: .top) {
+                ChessBoardView(
+                    game: coordinator.game,
+                    showLegalMoves: gameSettings.showLegalMoves,
+                    flipped: coordinator.boardFlipped,
+                    onMove: coordinator.handleUserMove
+                )
+                .aspectRatio(1, contentMode: .fit)
+                .allowsHitTesting(coordinator.canHumanInteract)
+
+                if coordinator.engine.isThinking {
+                    ThinkingIndicator()
+                        .shadow(radius: 2)
+                        .padding(.top, -2)
+                }
+
+                if coordinator.gameResult != .ongoing {
+                    GameOverOverlay(result: coordinator.gameResult)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.25)))
+                        .zIndex(10)
+                }
             }
         }
         .padding(.horizontal)
         .padding(.top)
+    }
+
+    private var clockRow: some View {
+        HStack(spacing: 10) {
+            ClockPill(
+                title: "White",
+                time: coordinator.clockDisplay(for: .white),
+                isActive: coordinator.activeClockColor == .white
+            )
+
+            ClockPill(
+                title: "Black",
+                time: coordinator.clockDisplay(for: .black),
+                isActive: coordinator.activeClockColor == .black
+            )
+        }
     }
 
     private var toolbarContent: some ToolbarContent {
@@ -125,7 +151,11 @@ struct ContentView: View {
                     set: { gameSettings.updateSide($0) }
                 ),
                 showLegalMoves: $gameSettings.showLegalMoves,
-                elo: $gameSettings.elo
+                elo: $gameSettings.elo,
+                clockPreset: Binding(
+                    get: { gameSettings.clockPreset },
+                    set: { gameSettings.updateClockPreset($0) }
+                )
             )
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -153,5 +183,31 @@ struct ContentView: View {
                 toPiece: selectedType
             )
         }
+    }
+}
+
+private struct ClockPill: View {
+    let title: String
+    let time: String
+    let isActive: Bool
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.caption.weight(.semibold))
+
+            Spacer(minLength: 8)
+
+            Text(time)
+                .font(.system(.body, design: .monospaced).weight(.semibold))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isActive ? Color.green.opacity(0.18) : Color.secondary.opacity(0.12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isActive ? Color.green.opacity(0.7) : Color.clear, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

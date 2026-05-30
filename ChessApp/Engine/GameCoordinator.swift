@@ -27,11 +27,16 @@ final class GameCoordinator: ObservableObject {
     ]
     @Published var mentorIsThinking = false
     @Published private(set) var positionCanUseMentor = false
+    @Published private(set) var clockPreset: ClockPreset = .off
+    @Published private(set) var whiteTimeRemaining = 0
+    @Published private(set) var blackTimeRemaining = 0
+    @Published private(set) var activeClockColor: PieceColor?
 
     private var pendingPromotionMove: UCIMove?
     private var mentorUnavailableShown = false
     private var hasStarted = false
     private var startedFromSetup = false
+    private var clockTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
     convenience init() {
@@ -74,6 +79,15 @@ final class GameCoordinator: ObservableObject {
         engine.setElo(elo)
     }
 
+    func setClockPreset(_ preset: ClockPreset) {
+        guard clockPreset != preset else { return }
+
+        clockPreset = preset
+        resetClockTimes()
+        persistGame()
+        startClockIfNeeded()
+    }
+
     func handleUserMove(_ move: UCIMove) {
         guard isGameOngoing() else {
             handleGameResultAfterMove()
@@ -89,6 +103,7 @@ final class GameCoordinator: ObservableObject {
 
         engine.move(move.rawValue)
         game.recordMove(move.rawValue)
+        applyClockAfterMove(movedBy: game.sideToMove.opposite)
         updateMentorGate()
         persistGame()
 
@@ -107,6 +122,7 @@ final class GameCoordinator: ObservableObject {
 
         let promotionMove = UCIMove(from: pendingMove.from, to: pendingMove.to, promotion: type)
         game.recordMove(promotionMove.rawValue)
+        applyClockAfterMove(movedBy: game.sideToMove.opposite)
         updateMentorGate()
         engine.move(promotionMove.rawValue)
 
@@ -137,6 +153,7 @@ final class GameCoordinator: ObservableObject {
 
         DispatchQueue.main.async {
             guard !self.isResetting else { return }
+            self.startClockIfNeeded()
             self.requestEngineMoveIfNeeded()
         }
     }
@@ -146,6 +163,7 @@ final class GameCoordinator: ObservableObject {
 
         DispatchQueue.main.async {
             guard !self.isResetting else { return }
+            self.startClockIfNeeded()
             self.requestEngineMoveIfNeeded()
         }
     }
@@ -166,6 +184,7 @@ final class GameCoordinator: ObservableObject {
         game.setMoveHistory([])
         startedFromSetup = true
         updateMentorGate()
+        resetClockTimes()
         gameResult = .ongoing
         engine.setPosition(fen: game.fen)
 
@@ -179,6 +198,7 @@ final class GameCoordinator: ObservableObject {
         DispatchQueue.main.async {
             self.isResetting = false
             self.handleGameResultAfterMove()
+            self.startClockIfNeeded()
             self.requestEngineMoveIfNeeded()
         }
 
@@ -253,6 +273,7 @@ final class GameCoordinator: ObservableObject {
         }
 
         game.recordMove(move.rawValue)
+        applyClockAfterMove(movedBy: game.sideToMove.opposite)
         updateMentorGate()
         persistGame()
 
@@ -287,12 +308,19 @@ final class GameCoordinator: ObservableObject {
         case .checkmate(let winner):
             gameResult = .checkmate(winner: winner)
             engine.stop()
+            stopClock()
         case .stalemate:
             gameResult = .stalemate
             engine.stop()
+            stopClock()
         case .draw(let reason):
             gameResult = .draw(reason: reason)
             engine.stop()
+            stopClock()
+        case .timeout(let loser):
+            gameResult = .timeout(loser: loser)
+            engine.stop()
+            stopClock()
         case .check(let color):
             gameResult = .check(color: color)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
@@ -317,6 +345,7 @@ final class GameCoordinator: ObservableObject {
         game.reset()
         startedFromSetup = false
         updateMentorGate()
+        resetClockTimes()
         gameResult = .ongoing
         engine.newGame()
 
@@ -327,6 +356,7 @@ final class GameCoordinator: ObservableObject {
 
         DispatchQueue.main.async {
             self.isResetting = false
+            self.startClockIfNeeded()
         }
     }
 
@@ -413,6 +443,93 @@ final class GameCoordinator: ObservableObject {
         ]
     }
 
+    // MARK: - Clock
+
+    var clockIsEnabled: Bool {
+        clockPreset.isEnabled
+    }
+
+    func clockDisplay(for color: PieceColor) -> String {
+        ClockFormatter.display(color == .white ? whiteTimeRemaining : blackTimeRemaining)
+    }
+
+    private func resetClockTimes() {
+        stopClock()
+        whiteTimeRemaining = clockPreset.initialSeconds
+        blackTimeRemaining = clockPreset.initialSeconds
+        activeClockColor = nil
+    }
+
+    private func applyClockAfterMove(movedBy color: PieceColor) {
+        guard clockPreset.isEnabled else { return }
+
+        switch color {
+        case .white:
+            whiteTimeRemaining += clockPreset.incrementSeconds
+        case .black:
+            blackTimeRemaining += clockPreset.incrementSeconds
+        }
+
+        activeClockColor = game.sideToMove
+        startClockIfNeeded()
+    }
+
+    private func startClockIfNeeded() {
+        guard clockPreset.isEnabled,
+              gameResult == .ongoing,
+              !isResetting
+        else {
+            stopClock()
+            return
+        }
+
+        activeClockColor = game.sideToMove
+
+        guard clockTimer == nil else { return }
+
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor [weak self] in
+                self?.tickClock()
+            }
+        }
+    }
+
+    private func stopClock() {
+        clockTimer?.invalidate()
+        clockTimer = nil
+        activeClockColor = nil
+    }
+
+    private func tickClock() {
+        guard clockPreset.isEnabled,
+              gameResult == .ongoing,
+              let activeClockColor
+        else {
+            stopClock()
+            return
+        }
+
+        switch activeClockColor {
+        case .white:
+            whiteTimeRemaining = max(0, whiteTimeRemaining - 1)
+            if whiteTimeRemaining == 0 {
+                handleTimeout(for: .white)
+            }
+        case .black:
+            blackTimeRemaining = max(0, blackTimeRemaining - 1)
+            if blackTimeRemaining == 0 {
+                handleTimeout(for: .black)
+            }
+        }
+    }
+
+    private func handleTimeout(for loser: PieceColor) {
+        stopClock()
+        engine.stop()
+        gameResult = .timeout(loser: loser)
+        persistGame()
+    }
+
     // MARK: - Storage
 
     private func persistGame() {
@@ -421,7 +538,10 @@ final class GameCoordinator: ObservableObject {
             moves: game.moveHistory,
             whitePlayer: whitePlayer,
             blackPlayer: blackPlayer,
-            startedFromSetup: startedFromSetup
+            startedFromSetup: startedFromSetup,
+            clockPreset: clockPreset.rawValue,
+            whiteTimeRemaining: whiteTimeRemaining,
+            blackTimeRemaining: blackTimeRemaining
         )
         GameStorage.save(snapshot)
     }
@@ -441,10 +561,14 @@ final class GameCoordinator: ObservableObject {
         blackPlayer = snapshot.blackPlayer
 
         boardFlipped = (whitePlayer == .engine)
+        clockPreset = ClockPreset(rawValue: snapshot.clockPreset ?? "") ?? .off
+        whiteTimeRemaining = snapshot.whiteTimeRemaining ?? clockPreset.initialSeconds
+        blackTimeRemaining = snapshot.blackTimeRemaining ?? clockPreset.initialSeconds
         engine.setPosition(fen: game.fen)
 
         DispatchQueue.main.async {
             self.isResetting = false
+            self.startClockIfNeeded()
             self.requestEngineMoveIfNeeded()
         }
     }

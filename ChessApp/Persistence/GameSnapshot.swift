@@ -11,4 +11,7 @@ struct GameSnapshot: Codable {
     let whitePlayer: PlayerType
     let blackPlayer: PlayerType
     let startedFromSetup: Bool?
+    let clockPreset: String?
+    let whiteTimeRemaining: Int?
+    let blackTimeRemaining: Int?
 }

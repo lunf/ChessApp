@@ -11,10 +11,11 @@ enum GameResult: Equatable {
     case checkmate(winner: PieceColor)
     case stalemate
     case draw(reason: String)
+    case timeout(loser: PieceColor)
 
     var isTerminal: Bool {
         switch self {
-        case .checkmate, .stalemate, .draw:
+        case .checkmate, .stalemate, .draw, .timeout:
             return true
         default:
             return false
@@ -32,6 +33,8 @@ enum GameResult: Equatable {
             return "Stalemate"
         case .draw(let reason):
             return "Draw — \(reason)"
+        case .timeout(let loser):
+            return loser == .white ? "Black wins on time" : "White wins on time"
         case .ongoing:
             return ""
         }

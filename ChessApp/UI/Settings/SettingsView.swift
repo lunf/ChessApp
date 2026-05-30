@@ -11,6 +11,7 @@ struct SettingsView: View {
     @Binding var sideSelection: SideSelection
     @Binding var showLegalMoves: Bool
     @Binding var elo: Double
+    @Binding var clockPreset: ClockPreset
 
     var body: some View {
         Form {
@@ -25,6 +26,12 @@ struct SettingsView: View {
 
             Section("Gameplay") {
                 Toggle("Show move hints", isOn: $showLegalMoves)
+
+                Picker("Clock", selection: $clockPreset) {
+                    ForEach(ClockPreset.allCases) { preset in
+                        Text(preset.label).tag(preset)
+                    }
+                }
             }
 
             Section("Engine Strength") {
